@@ -1,8 +1,61 @@
 {% extends "daily/layout.html" %}
 {% block title %}
-Home
+Nx Meds
 {% endblock %}
 {% block content %}
-<h2>Summary</h2>
-No details yet
+
+<h2>Today Meds</h2>
+
+{% if sched.dose_set.count %}
+<table class="meds_list">
+    <thead>
+    <tr>
+        <th>Drug</th>
+        <th>Tablets</th>
+        <th>Dispenser Slot</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for med in sched.dose_set.all %}
+        <tr bgcolor="{{ med.colour }}">
+            <td>{{ med.tablet.drug_details }}</td>
+            <td>{{ med.tablet.num_tablets }}</td>
+            <td>{{ med.get_slot_display }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No doses scheduled for {{ date }}.</p>
+{% endif %}
+
+<h2>Incidents/Notes</h2>
+<form action="" method="POST">
+    {% csrf_token %}
+    <table>
+        {{ new_incident_form }}
+    </table>
+    <input type="submit" value="Submit">
+</form>
+{% if sched.dose_set.count %}
+    <table class="notes">
+        <thead>
+        <tr>
+            <th>Date/Time</th>
+            <th>Incident</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for prob in recent_incidents %}
+            <tr>
+                <td>{{ prob.when1 }}</td>
+                <td>{{ prob.description }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No incidents reported.</p>
+{% endif %}
+
 {% endblock %}

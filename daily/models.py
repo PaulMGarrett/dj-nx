@@ -1,3 +1,4 @@
+import datetime
 from django.db import models
 from django.db.models.fields import DateTimeField
 from django.db.models.fields.related import ForeignKey, ManyToManyField
@@ -100,3 +101,30 @@ class Dose(models.Model):
     def __str__(self):
         return f"{self.drug_details}@{self.slot} ({self.schedule})"
 
+
+class Incident(models.Model):
+    date0 = models.DateField("date")
+    time0 = models.TimeField("time")
+    description = models.TextField("What happened")
+
+    @property
+    def date1(self):
+        return self.date0.strftime("%a %d/%m")
+
+    @property
+    def time1(self):
+        return self.time0.strftime("%H:%M")
+
+    @property
+    def when1(self):
+        return self.date1 + ' ' + self.time1
+
+    def __str__(self):
+        return f"{self.when0}: {self.description[:20]}"
+
+    @classmethod
+    def now_data(cls):
+        now = datetime.datetime.now()
+        return {'date0': now.date(),
+                'time0': now.time(),
+                }

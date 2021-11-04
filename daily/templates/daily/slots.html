@@ -18,7 +18,7 @@
             <tbody>
             {% for med in sched.dose_set.all %}
                 {% if med.schedule == sched %}
-                    <tr bgcolor="{{ med.slot.colour }}">
+                    <tr bgcolor="{{ med.colour }}">
                         <td>{{ med.tablet.drug_details }}</td>
                         <td>{{ med.tablet.num_tablets }}</td>
                         <td>{{ med.get_slot_display }}</td>
