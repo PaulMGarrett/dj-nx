@@ -1,0 +1,34 @@
+{% extends "daily/layout.html" %}
+{% block title %}
+    Meds from {{ sched.date0 }}
+{% endblock %}
+{% block content %}
+    <h2>Medication from {{ sched.date0 }}</h2>
+
+    {% if sched.dose_set.count %}
+        <table class="meds_list">
+            <thead>
+            <tr>
+                <th>Drug</th>
+                <th>Tablets</th>
+                <th>Dispenser Slot</th>
+                <th>Purpose</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for med in sched.dose_set.all %}
+                {% if med.schedule == sched %}
+                    <tr bgcolor="{{ med.slot.colour }}">
+                        <td>{{ med.tablet.drug_details }}</td>
+                        <td>{{ med.tablet.num_tablets }}</td>
+                        <td>{{ med.get_slot_display }}</td>
+                        <td>{{ med.tablet.drug.purpose }}</td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No doses scheduled for {{ date }}.</p>
+    {% endif %}
+{% endblock %}
