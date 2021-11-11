@@ -123,8 +123,45 @@ class Incident(models.Model):
         return f"{self.when0}: {self.description[:20]}"
 
     @classmethod
-    def now_data(cls):
+    def initial_data(cls):
         now = datetime.datetime.now()
         return {'date0': now.date(),
                 'time0': now.time(),
+                }
+
+class BloodPressure(models.Model):
+    date0 = models.DateField("date measured")
+    time0 = models.TimeField("time measured")
+    higher = models.IntegerField("systolic/higher")
+    lower = models.IntegerField("diastolic/lower")
+    heart_rate = models.IntegerField("beats per minute (or zero)", null=True)
+
+    @property
+    def date1(self):
+        return self.date0.strftime("%a %d/%m")
+
+    @property
+    def time1(self):
+        return self.time0.strftime("%H:%M")
+
+    @property
+    def when1(self):
+        return self.date1 + ' ' + self.time1
+
+    @property
+    def bp(self):
+        return f"{self.higher}/{self.lower}"
+    @property
+    def rate(self):
+        return f"{self.heart_rate}" if self.heart_rate else ""
+
+    def __str__(self):
+        return f"{self.when1} {self.bp}" + f"({self.heart_rate})" if self.heart_rate else ""
+
+    @classmethod
+    def initial_data(cls):
+        now = datetime.datetime.now()
+        return {'date0': now.date(),
+                'time0': now.time(),
+                'heart_rate': 0,
                 }

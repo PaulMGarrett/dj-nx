@@ -1,9 +1,8 @@
 from django.urls import path
-from daily import views
-from daily.models import Dose, Schedule
+from daily import models, views
 
 scheds_list_view = views.SchedListView.as_view(
-    queryset=Schedule.objects.order_by("-date0"),
+    queryset=models.Schedule.objects.order_by("-date0"),
     context_object_name="schedule_list",
     template_name="daily/schedules.html",
 )
@@ -19,4 +18,6 @@ urlpatterns = [
     path("contact/", views.contact, name="contact"),
     path("schedules/", scheds_list_view, name="schedules"),
     path("schedules/<int:pk>/", sched_detail_view, name="slots"),
+    path('incidents/', views.incidents, name='incidents'),
+    path('bp/', views.bp, name='bp'),
 ]

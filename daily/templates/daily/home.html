@@ -30,13 +30,6 @@ Nx Meds
 {% endif %}
 
 <h2>Incidents/Notes</h2>
-<form action="" method="POST">
-    {% csrf_token %}
-    <table>
-        {{ new_incident_form }}
-    </table>
-    <input type="submit" value="Submit">
-</form>
 {% if sched.dose_set.count %}
     <table class="notes">
         <thead>
