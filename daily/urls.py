@@ -18,6 +18,9 @@ urlpatterns = [
     path("contact/", views.contact, name="contact"),
     path("schedules/", scheds_list_view, name="schedules"),
     path("schedules/<int:pk>/", sched_detail_view, name="slots"),
-    path('incidents/', views.incidents, name='incidents'),
+    path('comments/', views.comments, name='comments'),
+    path('oedema/', views.oedema, name='oedema'),
+    path('exercise/', views.exercise, name='exercise'),
     path('bp/', views.bp, name='bp'),
+    path('weight/', views.weight, name='weight'),
 ]

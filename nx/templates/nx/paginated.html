@@ -1,32 +1,25 @@
-{% extends "daily/layout.html" %}
-{% block title %}
-    Incidents
-{% endblock %}
+{% extends "nx/layout.html" %}
 {% block content %}
-<h2>New observation</h2>
+<h2>New {% block entry_title %}{% endblock %}</h2>
     <form action="" method="POST">
         {% csrf_token %}
-        <table>
-            {{ new_incident_form }}
+        <table class="entry_form">
+            {% block entry_form %}{% endblock %}
         </table>
-        <input type="submit" value="Submit new report">
+        <input type="submit" value="Submit new">
     </form>
 
-    <h2>Incidents/observations logged</h2>
-    <table class="inc_list">
+<h2>{% block paginated_title %}{% endblock %}</h2>
+    <table class="paginated-list">
         <thead>
         <tr>
-            <th>Date</th>
-            <th>Time</th>
-            <th>Incident description</th>
+            {% block paginated_header %}{% endblock %}
         </tr>
         </thead>
         <tbody>
-        {% for inc in page_obj %}
+        {% for x in page_obj %}
         <tr>
-            <td>{{ inc.date0 }}</td>
-            <td>{{ inc.time0 }}</td>
-            <td>{{ inc.description }}</td>
+            {% block paginated_x %}{% endblock %}
         </tr>
         {% endfor %}
         </tbody>

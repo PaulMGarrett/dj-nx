@@ -6,6 +6,7 @@ from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.utils import timezone
 
 # Helpers --------------
+K2P_CONV = 2.20462  # how many pounds in one kilo
 
 class Slot():
     def __init__(self, code, alarm, colour, name=None, icon=None):
@@ -24,12 +25,13 @@ class Slot():
         """ Return 2-element tuple of code and time string. """
         return (self.code, str(self))
 
+# Hard-coded for now
 Slots = [
     Slot('A1', 9, "#FFF0FF"),
     Slot('A2', 12, "#F0FFFF"),
     Slot('A3', 14, "#FFFFF0"),
     Slot('B1', 16, "#FFF0F0"),
-    Slot('B2', 18.5, "#F0FFF0"),
+    Slot('B2', 19, "#F0FFF0"),
     Slot('B3', 21.5, "#F0F0FF"),
     ]
 
@@ -110,125 +112,52 @@ class Dose(models.Model):
 
 # Daily observations ---------------------
 
-
-class BloodPressure(models.Model):
-    date0 = models.DateField("date measured")
-    time0 = models.TimeField("time measured")
-    higher = models.IntegerField("systolic/higher")
-    lower = models.IntegerField("diastolic/lower")
-    heart_rate = models.IntegerField("beats per minute (or zero)", null=True)
-
-    @property
-    def date1(self):
-        return self.date0.strftime("%a %d/%m")
-
-    @property
-    def time1(self):
-        return self.time0.strftime("%H:%M")
-
-    @property
-    def when1(self):
-        return self.date1 + ' ' + self.time1
-
-    @property
-    def bp(self):
-        return f"{self.higher}/{self.lower}"
-    @property
-    def rate(self):
-        return f"{self.heart_rate}" if self.heart_rate else ""
-
-    def __str__(self):
-        return f"{self.when1} {self.bp}" + f"({self.heart_rate})" if self.heart_rate else ""
-
-    @classmethod
-    def initial_data(cls):
-        now = datetime.datetime.now()
-        return {'date0': now.date(),
-                'time0': now.time(),
-                'heart_rate': 0,
-                }
-
-
-class Comment(models.Model):
-    date0 = models.DateField("date")
-    time0 = models.TimeField("time")
-    description = models.TextField("What happened")
+class Obs(models.Model):
+    date0 = models.DateField("date measured", primary_key=True)
+    pounds = models.FloatField("pounds", default=0)
+    kilos = models.FloatField("kilos", default=0)
+    am_higher = models.IntegerField("Morning systolic", blank=True, null=True)
+    am_lower = models.IntegerField("Morning diastolic", blank=True, null=True)
+    # am_heart_rate = models.IntegerField("Morning bpm", null=True)
+    pm_higher = models.IntegerField("Afternoon systolic", blank=True, null=True)
+    pm_lower = models.IntegerField("Afternoon diastolic", blank=True, null=True)
+    # pm_heart_rate = models.IntegerField("Afternoon bpm", null=True)
+    exercise = models.CharField("Exercise notes", max_length=100, blank=True, null=True)
+    fatigue_score = models.IntegerField("Tiredness (out of 10)", validators=[out_of_ten], null=True)
+    oedema = models.CharField("Oedema (swelling)", max_length=50, blank=True, null=True)
+    events = models.TextField("Events/Notes", max_length=500, blank=True, null=True)
 
     @property
     def date1(self):
         return self.date0.strftime("%a %d/%m")
 
     @property
-    def time1(self):
-        return self.time0.strftime("%H:%M")
+    def lbs(self):
+        w = self.kilos * K2P_CONV if self.pounds == 0 else self.pounds
+        return f"{w:.1f}"
 
     @property
-    def when1(self):
-        return self.date1 + ' ' + self.time1
+    def kgs(self):
+        w = self.pounds / K2P_CONV if self.kilos == 0 else self.kilos
+        return f"{w:.1f}"
+
+    @property
+    def am_bp(self):
+        return f"{self.am_higher}/{self.am_lower}"
+
+    @property
+    def pm_bp(self):
+        return f"{self.pm_higher}/{self.pm_lower}"
 
     def __str__(self):
-        return f"{self.when1}: {self.description[:20]}"
+        return f"{self.date1}({self.pounds}lb,{self.am_bp},{self.pm_bp})"
 
     @classmethod
     def initial_data(cls):
-        now = datetime.datetime.now()
-        return {'date0': now.date(),
-                'time0': now.time(),
-                }
-
-
-class Exercise(models.Model):
-    date0 = models.DateField("date", primary_key=True)
-    description = models.TextField("Exercise notes")
-
-    @property
-    def date1(self):
-        return self.date0.strftime("%a %d/%m")
-
-    @property
-    def when1(self):
-        return self.date1
-
-    def __str__(self):
-        return f"{self.when1}: {self.description[:20]}"
-
-    @classmethod
-    def initial_data(cls):
-        now = datetime.datetime.now()
-        return {'date0': now.date()}
-
-
-class Fatigue(models.Model):
-    date0 = models.DateField("date")
-    time0 = models.TimeField("time")
-    level = models.IntegerField("Tiredness (out of 10)", validators=[out_of_ten])
-
-    @property
-    def date1(self):
-        return self.date0.strftime("%a %d/%m")
-
-    @property
-    def time1(self):
-        return self.time0.strftime("%H:%M")
-
-    @property
-    def when1(self):
-        return self.date1 + ' ' + self.time1
-
-    def __str__(self):
-        return f"{self.when1}: {self.level}/10"
-
-    @classmethod
-    def initial_data(cls):
-        now = datetime.datetime.now()
-        return {'date0': now.date(),
-                'time0': now.time(),
-                }
-
-
-class Oedema(models.Model):
-    date0 = models.DateField("date", primary_key=True)
-    notes = models.TextField("Status of oedema today")
+        return {
+            'kilos': 0,
+            'pounds': 0,
+        }
 
     @property
     def date1(self):
@@ -244,34 +173,3 @@ class Oedema(models.Model):
                 'notes': '',
                 }
 
-
-class Weight(models.Model):
-    date0 = models.DateField("date measured", primary_key=True)
-    pounds = models.FloatField("pounds")
-    kilos = models.FloatField("kilos")
-    CONV = 2.20462  # how many pounds in one kilo
-
-    @property
-    def date1(self):
-        return self.date0.strftime("%a %d/%m")
-
-    @property
-    def lbs(self):
-        w = self.kilos * Weight.CONV if self.pounds == 0 else self.pounds
-        return f"{w:.1f}"
-
-    @property
-    def kgs(self):
-        w = self.pounds / Weight.CONV if self.kilos == 0 else self.kilos
-        return f"{w:.1f}"
-
-    def __str__(self):
-        return f"{self.date0}:{self.pounds}lbs"
-
-    @classmethod
-    def initial_data(cls):
-        now = datetime.datetime.now()
-        return {'date0': now.date(),
-                'pounds': 0,
-                'kilos': 0,
-                }

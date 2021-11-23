@@ -1,10 +1,23 @@
-{% extends "daily/layout.html" %}
+{% extends "nx/layout.html" %}
 {% block title %}
-Nx Heart Today
+Nx {{ date1 }}
 {% endblock %}
 {% block content %}
 
-<h2>Today</h2>
+<h2> {{ date1 }} </h2>
+{% for nav in navs %}
+<a href="{{ nav.url }}" class="day-link"> {{ nav.text }} </a>
+{% endfor %}
+
+<form action="" method="POST">
+    {% csrf_token %}
+    <table class="obs">
+        {{ new_obs_form }}
+    </table>
+    <input type="submit" value="Submit">
+</form>
+
+<h2> Medication List </h2>
 
 {% if sched.dose_set.count %}
 <table class="meds_list">
@@ -29,26 +42,5 @@ Nx Heart Today
 <p>No doses scheduled for {{ date }}.</p>
 {% endif %}
 
-<h2>Comments/Notes</h2>
-{% if sched.dose_set.count %}
-    <table class="notes">
-        <thead>
-        <tr>
-            <th>Date/Time</th>
-            <th>Comment</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for c in recent_comments %}
-            <tr>
-                <td>{{ c.when1 }}</td>
-                <td>{{ c.description }}</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-{% else %}
-    <p>No comments reported.</p>
-{% endif %}
 
 {% endblock %}
