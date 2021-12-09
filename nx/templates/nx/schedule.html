@@ -1,0 +1,25 @@
+{% extends "nx/layout.html" %}
+{% block title %}
+    Meds {{ sched.date0 }}
+{% endblock %}
+{% block content %}
+<h2>Medication from {{ sched.date0 }}</h2>
+{% if sched.reason %}
+    <h4>{{ sched.reason }}</h4>
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+    {{ formset.management_form }}
+    <table>
+        {% for form in doses_form %}
+        <tr>
+            <td>{{ form.tablet }}</td>
+            <td>{{ form.slot }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <input type="submit" value="Submit">
+</form>
+
+{% endblock %}
