@@ -3,6 +3,24 @@ from django import forms
 from nx import models
 
 
+class ScheduleForm(forms.ModelForm):
+    class Meta:
+        model = models.Schedule
+        exclude = []
+
+
+class DoseForm(forms.ModelForm):
+    class Meta:
+        model = models.Dose
+        exclude = []
+
+
+class DoseEditForm(forms.ModelForm):
+    class Meta:
+        model = models.Dose
+        exclude = ['schedule']
+
+
 class ObsForm(forms.ModelForm):
     class Meta:
         model = models.Obs

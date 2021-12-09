@@ -6,12 +6,12 @@ Nx {{ date1 }}
 
 <h2> {{ date1 }} </h2>
 {% for nav in navs %}
-<a href="{{ nav.url }}" class="day-link"> {{ nav.text }} </a>
+    <a href="{{ nav.url }}" class="day-link"> {{ nav.text }} </a>
 {% endfor %}
 
 <form action="" method="POST">
     {% csrf_token %}
-    <table class="obs">
+    <table class="obs-entry">
         {{ new_obs_form }}
     </table>
     <input type="submit" value="Submit">
@@ -20,20 +20,24 @@ Nx {{ date1 }}
 <h2> Medication List </h2>
 
 {% if sched.dose_set.count %}
-<table class="meds_list">
+<table class="meds-list">
     <thead>
     <tr>
-        <th>Drug</th>
+        <th>Slot</th>
         <th>Tablets</th>
-        <th>Dispenser Slot</th>
     </tr>
     </thead>
     <tbody>
-    {% for med in sched.dose_set.all %}
-        <tr bgcolor="{{ med.colour }}">
-            <td>{{ med.tablet.drug_details }}</td>
-            <td>{{ med.tablet.num_tablets }}</td>
-            <td>{{ med.get_slot_display }}</td>
+    {% for sd in sched.doses_by_slot %}
+        <tr bgcolor="{{ sd.slot.colour }}">
+            <th>{{ sd.slot.text }}</th>
+            <td>
+                <ul>
+                {% for t in sd.tablets %}
+                    <li>{{ t.tablet_info }}</li>
+                {% endfor %}
+                </ul>
+            </td>
         </tr>
     {% endfor %}
     </tbody>

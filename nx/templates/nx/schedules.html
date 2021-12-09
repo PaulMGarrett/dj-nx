@@ -1,20 +1,18 @@
-{% extends "nx/layout.html" %}
-{% block title %}
-    Schedule history
-{% endblock %}
-{% block content %}
-    <h2>Schedule History</h2>
+{% extends "nx/paginated.html" %}
+{% block title %} Schedules {% endblock %}
 
-    {% if schedule_list %}
-        <dl class="sched_list">
-            {% for sched in schedule_list %}
-                <dt>
-                    <a href="{% url 'slots' pk=sched.id %}"> {{ sched.date0|date:"Y-m-d" }} </a>
-                </dt>
-                <dd> {{ sched.reason }} </dd>
-            {% endfor %}
-        </dl>
-    {% else %}
-        <p>No schedules exist.</p>
-    {% endif %}
+{% block entry_title %} Schedule {% endblock %}
+
+{% block entry_form %} {{ new_schedule_form }} {% endblock %}
+
+{% block paginated_title %} Medication Hstory {% endblock %}
+
+{% block paginated_header %}
+            <th>Date</th>
+            <th>Reason for change</th>
+{% endblock %}
+
+{% block paginated_x %}
+            <td><a href="{{ x.edit_url }}">{{ x.date0 }}</a></td>
+            <td>{{ x.reason }}</td>
 {% endblock %}

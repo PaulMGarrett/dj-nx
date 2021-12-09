@@ -1,12 +1,26 @@
+from collections import OrderedDict
 import datetime
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.fields import DateTimeField
 from django.db.models.fields.related import ForeignKey, ManyToManyField
+from django.urls import reverse
 from django.utils import timezone
 
 # Helpers --------------
 K2P_CONV = 2.20462  # how many pounds in one kilo
+
+
+def toDate(yyyymmdd):
+    yyyy = yyyymmdd // 10000
+    mmdd = yyyymmdd - 10000 * yyyy
+    mm = mmdd // 100
+    dd = mmdd - mm * 100
+    return datetime.date(year=yyyy, month=mm, day=dd)
+
+def fromDate(dt):
+    return dt.strftime("%Y%m%d")
+
 
 class Slot():
     def __init__(self, code, alarm, colour, name=None, icon=None):
@@ -20,6 +34,9 @@ class Slot():
         h = int(self.alarm_hour)
         m = int(60 * (self.alarm_hour - h))
         return f"{self.code} ~ {h:02d}:{m:02d}"
+
+    def text(self):
+        return str(self)
 
     def choice(self):
         """ Return 2-element tuple of code and time string. """
@@ -75,12 +92,16 @@ class Tablet(models.Model):
     def drug_details(self):
         return f"{self.drug}({ug_to_string(self.tablet_micrograms)})"
 
+    @property
+    def tablet_info(self):
+        return str(self)
+
     def __str__(self):
         x = self.drug_details
-        if self.num_tablets > 1:
-            x = x + f"x{self.num_tablets}"
+        if self.num_tablets != 1:
+            x = x + f" x {self.num_tablets}"
         return x
-
+    
 
 class Schedule(models.Model):
     date0 = models.DateField("when this schedule came into force")
@@ -88,6 +109,28 @@ class Schedule(models.Model):
 
     def __str__(self):
         return f"Schedule-from-{self.date0.isoformat()}"
+
+    class SlotDoses():
+        def __init__(self, slot_name):
+            for s in Slots:
+                if slot_name.startswith(s.code):
+                    self.slot = s
+            self.tablets = []
+
+        def add(self, tablet):
+            self.tablets.append(tablet)
+            self.tablets.sort(key=lambda t: (t.drug.name, t.tablet_micrograms, t.num_tablets))
+
+    def doses_by_slot(self):
+        slots = {}
+        for dose in Dose.objects.filter(schedule=self):
+            if not dose.slot:
+                continue
+            slots.setdefault(dose.slot, Schedule.SlotDoses(dose.slot)).add(dose.tablet)
+        return sorted(slots.values(), key=lambda sd: sd.slot.code)
+
+    def edit_url(self):
+        return reverse('schedule', args=[fromDate(self.date0)])
 
 
 class Dose(models.Model):
