@@ -1,3 +1,4 @@
+from django.contrib import admin
 from django.urls import path
 from nx import views
 
@@ -10,4 +11,5 @@ urlpatterns = [
     path('charts/', views.charts, name='charts'),
     path("about/", views.about, name='about'),
     path("contact/", views.contact, name='contact'),
+    path("admin/", views.admin, name='nx-admin'),
 ]

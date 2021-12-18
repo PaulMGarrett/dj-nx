@@ -10,7 +10,6 @@ from django.utils import timezone
 # Helpers --------------
 K2P_CONV = 2.20462  # how many pounds in one kilo
 
-
 def toDate(yyyymmdd):
     yyyy = yyyymmdd // 10000
     mmdd = yyyymmdd - 10000 * yyyy
@@ -155,8 +154,16 @@ class Dose(models.Model):
 
 # Daily observations ---------------------
 
+class TirednessLevel(models.Model):
+    rating = models.IntegerField("tiredness level")
+    description = models.CharField("description", max_length=30)
+
+    def __str__(self):
+        return f"{self.rating}: {self.description}"
+
+
 class Obs(models.Model):
-    date0 = models.DateField("date measured", primary_key=True)
+    date0 = models.DateField("date observed", primary_key=True)
     pounds = models.FloatField("pounds", default=0)
     kilos = models.FloatField("kilos", default=0)
     am_higher = models.IntegerField("Morning systolic", blank=True, null=True)
@@ -165,14 +172,15 @@ class Obs(models.Model):
     pm_higher = models.IntegerField("Afternoon systolic", blank=True, null=True)
     pm_lower = models.IntegerField("Afternoon diastolic", blank=True, null=True)
     # pm_heart_rate = models.IntegerField("Afternoon bpm", null=True)
+#    fatigue_score = models.IntegerField("Tiredness (out of 10)", validators=[out_of_ten], null=True)
+    tiredness = models.ForeignKey(TirednessLevel, null=True, on_delete=models.PROTECT)
     exercise = models.CharField("Exercise notes", max_length=100, blank=True, null=True)
-    fatigue_score = models.IntegerField("Tiredness (out of 10)", validators=[out_of_ten], null=True)
     oedema = models.CharField("Oedema (swelling)", max_length=50, blank=True, null=True)
     events = models.TextField("Events/Notes", max_length=500, blank=True, null=True)
 
     @property
     def date1(self):
-        return self.date0.strftime("%a %d/%m")
+        return self.date0.strftime("%Y-%m-%d")
 
     @property
     def lbs(self):
@@ -193,26 +201,4 @@ class Obs(models.Model):
         return f"{self.pm_higher}/{self.pm_lower}"
 
     def __str__(self):
-        return f"{self.date1}({self.pounds}lb,{self.am_bp},{self.pm_bp})"
-
-    @classmethod
-    def initial_data(cls):
-        return {
-            'kilos': 0,
-            'pounds': 0,
-        }
-
-    @property
-    def date1(self):
-        return self.date0.strftime("%a %d/%m")
-
-    def __str__(self):
-        return f"{self.date1}:{self.notes[:40]}"
-
-    @classmethod
-    def initial_data(cls):
-        now = datetime.datetime.now()
-        return {'date0': now.date(),
-                'notes': '',
-                }
-
+        return self.date0.strftime('%Y-%m-%d')
