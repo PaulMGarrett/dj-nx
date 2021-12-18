@@ -22,6 +22,26 @@
   <script>
     let chart2Ctx = document.getElementById("chart2").getContext("2d");
     let chart2 = new Chart(chart2Ctx, {
+      type: "line",
+      options: {
+         responsive: true,
+      }
+    });
+  </script>
+  <canvas id="chart3"></canvas>
+  <script>
+    let chart3Ctx = document.getElementById("chart3").getContext("2d");
+    let chart3 = new Chart(chart3Ctx, {
+      type: "bar",
+      options: {
+         responsive: true,
+      }
+    });
+  </script>
+  <canvas id="chart4"></canvas>
+  <script>
+    let chart4Ctx = document.getElementById("chart4").getContext("2d");
+    let chart4 = new Chart(chart4Ctx, {
       type: "bar",
       options: {
          responsive: true,
@@ -65,7 +85,9 @@ $.ajax({
 
 function loadAllCharts() {
   loadChart(chart1, `/nx/chart-data/lbs`);
-  loadChart(chart2, `/nx/chart-data/bp-am`);
+  loadChart(chart2, `/nx/chart-data/kgs`);
+  loadChart(chart3, `/nx/chart-data/bp-am`);
+  loadChart(chart4, `/nx/chart-data/bp-pm`);
 }
 </script>
 {% endblock content %}

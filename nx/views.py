@@ -13,7 +13,7 @@ from nx import forms, models
 
 class Link():
     MAX_FUTURE_DAYS = 3
-    earliest = datetime.date(year=2020, month=1, day=1)
+    earliest = datetime.date(year=2020, month=9, day=1)
     def __init__(self, datetime, text):
         self.dt = datetime
         self.text = text
@@ -30,8 +30,18 @@ class Link():
 
 
 def home(request):
-    yyyymmdd = int(datetime.date.today().strftime("%Y%m%d"))
-    print(f"TODO replace today's date with earliest unfilled {yyyymmdd}")
+    try:
+        latest = models.Obs.objects.order_by('-date0')[0]
+        to_use = latest.date0
+        if not (latest.lbs == 0 or latest.am_higher == 0 or latest.am_lower == 0
+                or latest.pm_higher == 0 or latest.pm_lower == 0):
+            # this day is finished so start with the next one
+            to_use += datetime.timedelta(days=1)
+    except Exception as e:
+        print(f"Exception: {e}")
+        to_use = datetime.date.today()
+
+    yyyymmdd = int(to_use.strftime("%Y%m%d"))
     return HttpResponseRedirect(reverse('day', args=[yyyymmdd]))
 
 def day(request, yyyymmdd):
@@ -64,11 +74,14 @@ def day(request, yyyymmdd):
     if request.method == 'POST':
         obs_form = forms.ObsForm(request.POST, instance=obs)
         if obs_form.is_valid():
+            print("valid form: " + str(obs_form))
             obs.save()
 
             return HttpResponseRedirect(reverse('day', args=[yyyymmdd]))
+        else:
+            print("form not valid: " + str(obs_form.errors))
     else:
-        obs_form = forms.ObsForm(initial=obs.initial_data())
+        obs_form = forms.ObsForm(instance=obs)
 
     context = {
         'date1': current.strftime("%A %b %d %Y"),
@@ -153,58 +166,108 @@ def charts(request):
     return render(request, 'nx/charts.html', context={})
 
 def chart_data(request, cname):
-    # obs = models.Obs.objects.order_by('date0')
+    obs = models.Obs.objects.order_by('date0')
+    if len(obs) > 90:
+        obs = obs[-90:]
     dates = []
     if cname == 'lbs':
         lbs = []
-        wt = 238.1
-        for i in range(60, 0, -1):
-            wt += 0.1 * random.randrange(-45, +40)
-            if wt == 237:
-                continue
-            lbs.append(wt)
-            dates.append((datetime.date.today() - datetime.timedelta(days=i)).strftime('%b %d'))
-        # for ob in obs:
-        #     dates.append(ob.date0.strftime('%b %d'))
-        #     lbs.append(float(ob.lbs))
+        # wt = 238.1
+        # for i in range(60, 0, -1):
+        #     wt += 0.1 * random.randrange(-45, +40)
+        #     if wt == 237:
+        #         continue
+        #     lbs.append(wt)
+        #     dates.append((datetime.date.today() - datetime.timedelta(days=i)).strftime('%b %d'))
+        for ob in obs:
+            if ob.lbs:
+                dates.append(ob.date0.strftime('%b %d'))
+                lbs.append(float(ob.lbs))
 
         return JsonResponse({
             'options': {
                 'title': {'text': f'Weight (pounds)', 'display': True},
                 'type': 'line',
+                'scales': {
+                    'yAxes': [{
+                        'ticks': {
+                            'fontSize': 28
+                        }
+                    }]
+                },
                 },
             'data': {
                 'labels': dates,
                 'datasets': [{
                     'label': 'Weight (lb)',
-                    'borderColor': '#ff8080',
+                    'borderColor': '#00ff00',
+                    'borderWidth': 5,
                     'fill': False,
                     'tension': 0,
                     'data': lbs,
                 }]
             },
         })
-    if cname.startswith('bp'):
-        when = 'morning' if cname.endswith('am') else 'afternoon'
+    if cname == 'kgs':
+        kgs = []
+        for ob in obs:
+            if ob.kgs:
+                dates.append(ob.date0.strftime('%b %d'))
+                kgs.append(float(ob.kgs))
+
+        return JsonResponse({
+            'options': {
+                'title': {'text': f'Weight (kilos)', 'display': True},
+                'type': 'line',
+                'scales': {
+                    'yAxes': [{
+                        'ticks': {
+                            'fontSize': 28
+                        }
+                    }]
+                },
+                },
+            'data': {
+                'labels': dates,
+                'datasets': [{
+                    'label': 'Weight (Kg)',
+                    'borderColor': '#00ff00',
+                    'borderWidth': 5,
+                    'fill': False,
+                    'tension': 0,
+                    'data': kgs,
+                }]
+            },
+        })
+    if cname.startswith('bp-'):
+        am = cname.endswith('am')
         systolic = []
         diastolic = []
-        s = 100
-        d = 75
-        for i in range(60, 0, -1):
-            s += random.randrange(-8, +8)
-            while s < 75: s += 5
-            while s > 120: s -= 3
-            d += random.randrange(-6, +6)
-            while s < 53: s += 4
-            while s > 81: s -= 2
-            if (s - d) < 5:
-                continue
-            dates.append((datetime.date.today() - datetime.timedelta(days=i)).strftime('%b %d'))
-            systolic.append(s)
-            diastolic.append(d)
-        # for ob in obs:
-        #     dates.append(ob.date0.strftime('%b %d'))
-        #     lbs.append(float(ob.lbs))
+        # s = 100
+        # d = 75
+        # for i in range(60, 0, -1):
+        #     s += random.randrange(-8, +8)
+        #     while s < 75: s += 5
+        #     while s > 120: s -= 3
+        #     d += random.randrange(-6, +6)
+        #     while s < 53: s += 4
+        #     while s > 81: s -= 2
+        #     if (s - d) < 5:
+        #         continue
+        #     dates.append((datetime.date.today() - datetime.timedelta(days=i)).strftime('%b %d'))
+        #     systolic.append(s)
+        #     diastolic.append(d)
+        for ob in obs:
+            if am:
+                if ob.am_higher and ob.am_lower:
+                    dates.append(ob.date0.strftime('%b %d'))
+                    systolic.append(int(ob.am_higher))
+                    diastolic.append(int(ob.am_lower))
+            else:
+                if ob.pm_higher and ob.pm_lower:
+                    dates.append(ob.date0.strftime('%b %d'))
+                    systolic.append(int(ob.pm_higher))
+                    diastolic.append(int(ob.pm_lower))
         # adjust for stacked bar chart
         for i in range(len(systolic)):
             systolic[i] -= diastolic[i]
@@ -212,9 +275,18 @@ def chart_data(request, cname):
         return JsonResponse({
             
             'options': {
-                'title': {'text': f'BP ({when})', 'display': True},
+                'title': {'text': f"BP ({'morning' if am else 'afternoon'})", 'display': True},
                 'scales': {
-                    'yAxes': [{ 'stacked': True }],
+                    'yAxes': [{ 'stacked': True,
+                        'ticks': { 'fontSize': 28 }
+                        }],
+                'scales': {
+                    'yAxes': [{
+                        'ticks': {
+                            'fontSize': 28
+                        }
+                    }]
+                },
                     'xAxes': [{
                         'barPercentage': 0.2,
                         'stacked': True,
@@ -231,8 +303,63 @@ def chart_data(request, cname):
                 },
                 {
                     'label': 'Systolic',
-                    'backgroundColor': '#ff8080',
+                    'backgroundColor': '#ff8080' if am else '#4040ff',
                     'data': systolic
+                }]
+            },
+        })
+    if cname == 'bp':
+        a_systolic = []
+        a_diastolic = []
+        p_systolic = []
+        p_diastolic = []
+        for ob in obs:
+            dates.append(ob.date0.strftime('%b %d'))
+            if ob.am_higher and ob.am_lower:
+                a_systolic.append(int(ob.am_higher))
+                a_diastolic.append(int(ob.am_lower))
+            else:
+                # try and draw a zero-height bar to show no reading taken
+                a_systolic.append(100)
+                a_diastolic.append(100)
+            if ob.pm_higher and ob.pm_lower:
+                p_systolic.append(int(ob.pm_higher))
+                p_diastolic.append(int(ob.pm_lower))
+            else:
+                # try and draw a zero-height bar to show no reading taken
+                p_systolic.append(100)
+                p_diastolic.append(100)
+        # adjust for stacked bar chart
+        for i in range(len(dates)):
+            a_systolic[i] -= a_diastolic[i]
+            p_systolic[i] -= p_diastolic[i]
+
+        return JsonResponse({
+            
+            'options': {
+                'title': {'text': f"Blood Pressure", 'display': True},
+                'scales': {
+                    'yAxes': [{ 'stacked': True,
+                        'ticks': { 'fontSize': 28 }
+                        }],
+                    'xAxes': [{
+                        'barPercentage': 0.2,
+                        'stacked': True,
+                        'ticks': { 'maxRotation': 90, 'minRotation': 90 }
+                    }],
+                }
+            },
+            'data': {
+                'labels': dates,
+                'datasets': [{
+                    'label': 'Diastolic',
+                    'backgroundColor': '#ffffff',
+                    'data': a_diastolic
+                },
+                {
+                    'label': 'Systolic',
+                    'backgroundColor': '#ff8080',
+                    'data': a_systolic
                 }]
             },
         })
@@ -243,4 +370,7 @@ def about(request):
 
 def contact(request):
     return render(request, "nx/contact.html")
+
+def admin(request):
+   return HttpResponseRedirect(reverse('nx-admin').replace('nx/admin', 'admin/nx'))
 
