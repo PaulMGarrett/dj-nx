@@ -43,3 +43,12 @@
     padding-right: 5px;
     border: off;
 }
+
+.info p,div {
+    margin-left: 40px;
+    margin-right: 40px;
+}
+
+.mono {
+    font-family: monospace;
+}

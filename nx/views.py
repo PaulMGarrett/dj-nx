@@ -61,9 +61,12 @@ def day(request, yyyymmdd):
     # TODO today, first incomplete, etc.
 
     med_schedule = None
+    note = None
     for sched in models.Schedule.objects.order_by('-date0'):
         med_schedule = sched
-        if sched.date0 < current:
+        if sched.date0 <= current:
+            if sched.date0 == current:
+                note = sched.reason
             break
 
     try:
@@ -87,9 +90,36 @@ def day(request, yyyymmdd):
         'date1': current.strftime("%A %b %d %Y"),
         'navs': [lnk for lnk in links if lnk.isValid()],
         'sched': med_schedule,
+        'sched_note': note,
         'new_obs_form': obs_form,
     }
     return render(request, "nx/day.html", context=context)
+
+def events(request):
+    """ Just days with events noted - not paged yet """
+    class TimePoint():
+        def __init__(self, ob):
+            self.day = ob.date0.strftime("%a %d %b %Y")
+            self.notes = ''
+            for e in ob.events.splitlines():
+                if not e.strip():
+                    continue
+                if 'dizzy' in e.lower():
+                    continue
+                if self.notes: self.notes += ' ; '
+                self.notes += e.strip()
+
+    events = []
+    for ob in models.Obs.objects.order_by('-date0'):
+        t = TimePoint(ob)
+        if t.notes:
+            events.append(t)
+
+    context = {
+        'events': events,
+    }
+    return render(request, 'nx/events.html', context=context)
+
 
 DoseFormSet = formset_factory(forms.DoseEditForm, extra=1)
 
@@ -162,207 +192,169 @@ def schedules(request):
     }
     return render(request, "nx/schedules.html", context=context)
 
-def charts(request):
-    return render(request, 'nx/charts.html', context={})
 
-def chart_data(request, cname):
+class ObsChart():
+    DEFAULT_COLOURS = ['ff4040', '40ff40', '4040ff', '808080']
+
+    def __init__(self, slug, title, chart_type, data_labels, ob_reader,
+                 stacked=False, colour=None,
+                 xFontSize=14, yFontSize=20,
+                 lines=None):
+        """
+        slug: alphanumeric chart id (goes into variable names)
+        title: chart title text
+        chart_type: 'bar' or 'line'
+        data_labels: text for each dataset plotted
+        ob_reader: given an 'Obs' record, return list of values to chart, or None
+        stacked: for bar graphs, draw one above the other (second colour white)
+        colour: line or bar colour, or array of colours, or None for standard set
+        lines: annotation details for extra lines to be drawn
+        """
+        self.slug = slug
+        self.title = title
+        self.chart_type = chart_type
+        self.data_labels = data_labels
+        self.ob_reader = ob_reader
+        self.stacked = stacked
+        if isinstance(colour, list):
+            self.data_colours = colour
+        elif isinstance(colour, str) and len(self.data_labels) == 2 and self.stacked:
+                self.data_colours = ['#ffffff', colour]
+        elif colour is None:
+            self.data_colours = ObsChart.DEFAULT_COLOURS[:len(self.data_labels)]
+        else:
+            self.data_colours = [colour]
+        self.xFontSize = xFontSize
+        self.yFontSize = yFontSize
+        self.ann_lines = lines
+
+    def get_annotations(self):
+        ann_list = []
+        ann_id = 0
+        if self.ann_lines:
+            for line in self.ann_lines:
+                d = {'type': 'line',
+                     'borderColor': '#80ff80',
+                     'borderWidth': 2,
+                     'mode': 'horizontal',
+                     'scaleID': 'y-axis-0',
+                }
+                if isinstance(line, int):
+                    d['value'] = line
+                else:
+                    d.update(line)
+                ann_id += 1
+                d.update(id='line%d' % ann_id)
+                ann_list.append(d)
+        if ann_list:
+            return {'annotations': ann_list}
+        else:
+            return None
+
+    def chart_div(self):
+        return f"""
+<div class="chart-{self.chart_type}">
+  <canvas id="chart_{self.slug}"></canvas>
+  <script>
+    let ctxt_{self.slug} = document.getElementById("chart_{self.slug}").getContext("2d");
+    let chart_{self.slug} = new Chart(ctxt_{self.slug}, {{
+      type: "{self.chart_type}"
+    }});
+  </script>
+</div>
+"""
+
+    def chart_load(self):
+        return f"  loadChart(chart_{self.slug}, `/nx/chart-data/{self.slug}`);\n"
+
+    def json_response(self):
+        dsets = []
+        for i, lbl in enumerate(self.data_labels):
+            print(f"data[{i}] {lbl}")
+            dset = {'label': lbl, 'data': []}
+            if self.chart_type == 'line':
+                dset.update(borderColor=self.data_colours[i],
+                            borderWidth=5, fill=False, tension=0)
+            elif self.chart_type == 'bar':
+                dset.update(backgroundColor=self.data_colours[i],
+                            barPercentage=0.6)
+            else:
+                print(f"Chart type {self.chart_type} not handled")
+            dsets.append(dset)
+        print(repr(dsets))
+        resp = {
+            'options': {
+                'title': {'text': self.title, 'display': True},
+                'type': self.chart_type,
+                'scales': {
+                    'xAxes': [{
+                        'ticks': {
+                            'fontSize': self.xFontSize,
+                            'maxRotation': 90,
+                            'minRotation': 90,
+                        },
+                    }],
+                    'yAxes': [{
+                        'stacked': self.stacked,
+                        'ticks': {
+                            'fontSize': self.yFontSize,
+                        },
+                    }],
+                },
+            },
+            'data': {
+                'labels': [],
+                'datasets': dsets,
+            },
+        }
+        
+        ann = self.get_annotations()
+        if ann:
+            resp['options'].setdefault('plugins', {})['annotation'] = ann
+
+        return resp
+
+AllCharts = [
+    ObsChart('lbs', "Weight (pounds)", 'line', ["Weight (lb)"],
+             lambda ob: [ob.lbs] if ob.lbs else None,
+             colour='#40ff40'),
+    ObsChart('kgs', "Weight (kilos)", 'line', ["Weight (kg)"],
+             lambda ob: [ob.kgs] if ob.kgs else None,
+             colour='#008080'),
+    ObsChart('bpam', "Blood Pressure (morning)", 'bar', ["Diastolic", "Systolic"],
+             lambda ob: [int(ob.am_lower), int(ob.am_higher) - int(ob.am_lower)] if ob.am_higher and ob.am_lower else None,
+             colour='#ff4040', stacked=True, lines=[100]),
+    ObsChart('bppm', "Blood Pressure (afternoon)", 'bar', ["Diastolic", "Systolic"],
+             lambda ob: [int(ob.pm_lower), int(ob.pm_higher) - int(ob.pm_lower)] if ob.pm_higher and ob.pm_lower else None,
+             colour='#4040ff', stacked=True, lines=[80, 100, 120]),
+]
+
+def chart_data(request, cname, days=90):
+    cobj = list([c for c in AllCharts if c.slug == cname])
+    if len(cobj) == 1:
+        cobj = cobj[0]
+    else:
+        return HttpResponseNotFound()
+    
+    resp = cobj.json_response()
+    # the response should contain all the options, title text etc. - just add data
     obs = models.Obs.objects.order_by('date0')
-    if len(obs) > 90:
-        obs = obs[-90:]
-    dates = []
-    if cname == 'lbs':
-        lbs = []
-        # wt = 238.1
-        # for i in range(60, 0, -1):
-        #     wt += 0.1 * random.randrange(-45, +40)
-        #     if wt == 237:
-        #         continue
-        #     lbs.append(wt)
-        #     dates.append((datetime.date.today() - datetime.timedelta(days=i)).strftime('%b %d'))
-        for ob in obs:
-            if ob.lbs:
-                dates.append(ob.date0.strftime('%b %d'))
-                lbs.append(float(ob.lbs))
+    if len(obs) > days:
+        obs = obs[-days:]
+    for ob in obs:
+        row = cobj.ob_reader(ob)
+        if row:
+            resp['data']['labels'].append(ob.date0.strftime('%b %d'))
+            for i, v in enumerate(row):
+                resp['data']['datasets'][i]['data'].append(v)
 
-        return JsonResponse({
-            'options': {
-                'title': {'text': f'Weight (pounds)', 'display': True},
-                'type': 'line',
-                'scales': {
-                    'yAxes': [{
-                        'ticks': {
-                            'fontSize': 28
-                        }
-                    }]
-                },
-                },
-            'data': {
-                'labels': dates,
-                'datasets': [{
-                    'label': 'Weight (lb)',
-                    'borderColor': '#00ff00',
-                    'borderWidth': 5,
-                    'fill': False,
-                    'tension': 0,
-                    'data': lbs,
-                }]
-            },
-        })
-    if cname == 'kgs':
-        kgs = []
-        for ob in obs:
-            if ob.kgs:
-                dates.append(ob.date0.strftime('%b %d'))
-                kgs.append(float(ob.kgs))
+    return JsonResponse(resp)
 
-        return JsonResponse({
-            'options': {
-                'title': {'text': f'Weight (kilos)', 'display': True},
-                'type': 'line',
-                'scales': {
-                    'yAxes': [{
-                        'ticks': {
-                            'fontSize': 28
-                        }
-                    }]
-                },
-                },
-            'data': {
-                'labels': dates,
-                'datasets': [{
-                    'label': 'Weight (Kg)',
-                    'borderColor': '#00ff00',
-                    'borderWidth': 5,
-                    'fill': False,
-                    'tension': 0,
-                    'data': kgs,
-                }]
-            },
-        })
-    if cname.startswith('bp-'):
-        am = cname.endswith('am')
-        systolic = []
-        diastolic = []
-        # s = 100
-        # d = 75
-        # for i in range(60, 0, -1):
-        #     s += random.randrange(-8, +8)
-        #     while s < 75: s += 5
-        #     while s > 120: s -= 3
-        #     d += random.randrange(-6, +6)
-        #     while s < 53: s += 4
-        #     while s > 81: s -= 2
-        #     if (s - d) < 5:
-        #         continue
-        #     dates.append((datetime.date.today() - datetime.timedelta(days=i)).strftime('%b %d'))
-        #     systolic.append(s)
-        #     diastolic.append(d)
-        for ob in obs:
-            if am:
-                if ob.am_higher and ob.am_lower:
-                    dates.append(ob.date0.strftime('%b %d'))
-                    systolic.append(int(ob.am_higher))
-                    diastolic.append(int(ob.am_lower))
-            else:
-                if ob.pm_higher and ob.pm_lower:
-                    dates.append(ob.date0.strftime('%b %d'))
-                    systolic.append(int(ob.pm_higher))
-                    diastolic.append(int(ob.pm_lower))
-        # adjust for stacked bar chart
-        for i in range(len(systolic)):
-            systolic[i] -= diastolic[i]
-
-        return JsonResponse({
-            
-            'options': {
-                'title': {'text': f"BP ({'morning' if am else 'afternoon'})", 'display': True},
-                'scales': {
-                    'yAxes': [{ 'stacked': True,
-                        'ticks': { 'fontSize': 28 }
-                        }],
-                'scales': {
-                    'yAxes': [{
-                        'ticks': {
-                            'fontSize': 28
-                        }
-                    }]
-                },
-                    'xAxes': [{
-                        'barPercentage': 0.2,
-                        'stacked': True,
-                        'ticks': { 'maxRotation': 90, 'minRotation': 90 }
-                    }],
-                }
-            },
-            'data': {
-                'labels': dates,
-                'datasets': [{
-                    'label': 'Diastolic',
-                    'backgroundColor': '#ffffff',
-                    'data': diastolic
-                },
-                {
-                    'label': 'Systolic',
-                    'backgroundColor': '#ff8080' if am else '#4040ff',
-                    'data': systolic
-                }]
-            },
-        })
-    if cname == 'bp':
-        a_systolic = []
-        a_diastolic = []
-        p_systolic = []
-        p_diastolic = []
-        for ob in obs:
-            dates.append(ob.date0.strftime('%b %d'))
-            if ob.am_higher and ob.am_lower:
-                a_systolic.append(int(ob.am_higher))
-                a_diastolic.append(int(ob.am_lower))
-            else:
-                # try and draw a zero-height bar to show no reading taken
-                a_systolic.append(100)
-                a_diastolic.append(100)
-            if ob.pm_higher and ob.pm_lower:
-                p_systolic.append(int(ob.pm_higher))
-                p_diastolic.append(int(ob.pm_lower))
-            else:
-                # try and draw a zero-height bar to show no reading taken
-                p_systolic.append(100)
-                p_diastolic.append(100)
-        # adjust for stacked bar chart
-        for i in range(len(dates)):
-            a_systolic[i] -= a_diastolic[i]
-            p_systolic[i] -= p_diastolic[i]
-
-        return JsonResponse({
-            
-            'options': {
-                'title': {'text': f"Blood Pressure", 'display': True},
-                'scales': {
-                    'yAxes': [{ 'stacked': True,
-                        'ticks': { 'fontSize': 28 }
-                        }],
-                    'xAxes': [{
-                        'barPercentage': 0.2,
-                        'stacked': True,
-                        'ticks': { 'maxRotation': 90, 'minRotation': 90 }
-                    }],
-                }
-            },
-            'data': {
-                'labels': dates,
-                'datasets': [{
-                    'label': 'Diastolic',
-                    'backgroundColor': '#ffffff',
-                    'data': a_diastolic
-                },
-                {
-                    'label': 'Systolic',
-                    'backgroundColor': '#ff8080',
-                    'data': a_systolic
-                }]
-            },
-        })
+def charts(request):
+    context = {
+        'cobjs': AllCharts,
+    }
+    return render(request, 'nx/charts.html', context=context)
 
 
 def about(request):

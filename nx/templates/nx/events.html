@@ -1,0 +1,27 @@
+{% extends "nx/layout.html" %}
+{% block title %}
+Nx Events
+{% endblock %}
+{% block content %}
+
+<h2> Event Timeline </h2>
+
+<table class="events-list">
+    <thead>
+    <tr>
+        <th>Date</th>
+        <th>Event(s)</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for e in events %}
+        <tr>
+            <th class="mono">{{ e.day }}</th>
+            <td>{{ e.notes }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+
+{% endblock %}

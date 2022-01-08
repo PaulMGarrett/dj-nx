@@ -18,6 +18,9 @@ Nx {{ date1 }}
 </form>
 
 <h2> Medication List </h2>
+{% if sched_note %}
+    <p class="info">Just changed: {{ sched_note }}</p>
+{% endif %}
 
 {% if sched.dose_set.count %}
 <table class="meds-list">
