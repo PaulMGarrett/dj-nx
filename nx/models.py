@@ -155,7 +155,7 @@ class Dose(models.Model):
 # Daily observations ---------------------
 
 class TirednessLevel(models.Model):
-    rating = models.IntegerField("tiredness level")
+    rating = models.IntegerField("tiredness level", unique=True)
     description = models.CharField("description", max_length=30)
 
     def __str__(self):
@@ -173,9 +173,10 @@ class Obs(models.Model):
     pm_lower = models.IntegerField("Afternoon diastolic", blank=True, null=True)
     # pm_heart_rate = models.IntegerField("Afternoon bpm", null=True)
 #    fatigue_score = models.IntegerField("Tiredness (out of 10)", validators=[out_of_ten], null=True)
-    tiredness = models.ForeignKey(TirednessLevel, null=True, on_delete=models.PROTECT)
-    exercise = models.CharField("Exercise notes", max_length=100, blank=True, null=True)
     oedema = models.CharField("Oedema (swelling)", max_length=50, blank=True, null=True)
+    dizzy_spells = models.IntegerField("Dizzy spells", default=0, null=True)
+    exercise = models.CharField("Exercise notes", max_length=100, blank=True, null=True)
+    tiredness = models.ForeignKey(TirednessLevel, null=True, to_field='rating', default=0, on_delete=models.PROTECT)
     events = models.TextField("Events/Notes", max_length=500, blank=True, null=True)
 
     @property
