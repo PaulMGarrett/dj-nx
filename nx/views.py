@@ -77,12 +77,9 @@ def day(request, yyyymmdd):
     if request.method == 'POST':
         obs_form = forms.ObsForm(request.POST, instance=obs)
         if obs_form.is_valid():
-            print("valid form: " + str(obs_form))
             obs.save()
 
             return HttpResponseRedirect(reverse('day', args=[yyyymmdd]))
-        else:
-            print("form not valid: " + str(obs_form.errors))
     else:
         obs_form = forms.ObsForm(instance=obs)
 
@@ -131,29 +128,18 @@ def schedule(request, yyyymmdd):
         return HttpResponseNotFound(f"Not a valid YYYYMMDD: '{yyyymmdd}'")
 
     prev_doses = models.Dose.objects.filter(schedule=sched).order_by('slot', 'tablet')
-    print(len(prev_doses), prev_doses[0])
     already_doses = list([{'tablet': d.tablet, 'slot': d.slot} for d in prev_doses])
-    print(len(already_doses), already_doses[:4])
     if request.method == 'POST':
-        print("handling POST")
         form_set = DoseFormSet(request.POST, initial=already_doses)
         # if form_set.has_changed():
         for f in form_set:
-            print(f)
             if f.has_changed():
-                print("has changed")
                 f.save()
-        # print(form_set.cleaned_data)
         for d in models.Dose.objects.filter(slot=''):
-            print("removing no-slot doses")
             d.delete()
-        # else:
-        #     print(form_set.errors)
 
-        print(f"now go back in and fetch again for {models.fromDate(current)}")
         return HttpResponseRedirect(reverse('schedule', args=[models.fromDate(current)]))
     else:
-        print("handling GET")
         form_set = DoseFormSet(initial=already_doses)
 
     context = {
@@ -270,7 +256,6 @@ class ObsChart():
     def json_response(self):
         dsets = []
         for i, lbl in enumerate(self.data_labels):
-            print(f"data[{i}] {lbl}")
             dset = {'label': lbl, 'data': []}
             if self.chart_type == 'line':
                 dset.update(borderColor=self.data_colours[i],
@@ -281,7 +266,6 @@ class ObsChart():
             else:
                 print(f"Chart type {self.chart_type} not handled")
             dsets.append(dset)
-        print(repr(dsets))
         resp = {
             'options': {
                 'title': {'text': self.title, 'display': True},
