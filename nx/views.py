@@ -313,7 +313,7 @@ AllCharts = [
              colour='#4040ff', stacked=True, lines=[80, 100, 120]),
 ]
 
-def chart_data(request, cname, days=90):
+def chart_data(request, cname, days=60):
     cobj = list([c for c in AllCharts if c.slug == cname])
     if len(cobj) == 1:
         cobj = cobj[0]
@@ -324,7 +324,7 @@ def chart_data(request, cname, days=90):
     # the response should contain all the options, title text etc. - just add data
     obs = models.Obs.objects.order_by('date0')
     if len(obs) > days:
-        obs = obs[-days:]
+        obs = obs[len(obs) - days:]
     for ob in obs:
         row = cobj.ob_reader(ob)
         if row:
