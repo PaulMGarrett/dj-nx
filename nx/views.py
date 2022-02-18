@@ -1,12 +1,14 @@
 import datetime
-import random
+import io
+
+from django.core.paginator import Paginator
 from django.forms import formset_factory
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import FileResponse, HttpResponseRedirect, JsonResponse
 from django.http.response import HttpResponseNotFound
 from django.shortcuts import render
 from django.urls import reverse
-from django.views.generic import ListView, DetailView
-from django.core.paginator import Paginator
+from django.views.generic import DetailView, ListView
+from PIL import Image, ImageDraw, ImageFont
 
 from nx import forms, models
 
@@ -29,6 +31,18 @@ class Link():
         return True
 
 
+def about(request):
+    return render(request, "nx/about.html")
+
+
+def contact(request):
+    return render(request, "nx/contact.html")
+
+
+def admin(request):
+   return HttpResponseRedirect(reverse('nx-admin').replace('nx/admin', 'admin/nx'))
+
+
 def home(request):
     try:
         latest = models.Obs.objects.order_by('-date0')[0]
@@ -43,6 +57,7 @@ def home(request):
 
     yyyymmdd = int(to_use.strftime("%Y%m%d"))
     return HttpResponseRedirect(reverse('day', args=[yyyymmdd]))
+
 
 def day(request, yyyymmdd):
     try:
@@ -91,6 +106,7 @@ def day(request, yyyymmdd):
         'new_obs_form': obs_form,
     }
     return render(request, "nx/day.html", context=context)
+
 
 def events(request):
     """ Just days with events noted - not paged yet """
@@ -147,6 +163,7 @@ def schedule(request, yyyymmdd):
         'doses_form': form_set,
     }
     return render(request, 'nx/schedule.html', context=context)
+
 
 def schedules(request):
     scheds = models.Schedule.objects.order_by('-date0')
@@ -340,13 +357,121 @@ def charts(request):
     }
     return render(request, 'nx/charts.html', context=context)
 
+class ChartAttrs():
+    bg = '#fff'
+    margin=15
+    bp_margins=5
+    bp_width=10
+    bp_sep=5
+    bp_am='#f22'
+    bp_pm='#22f'
+    bp_range=(50,130,10)
+    bp_height=4
+    bp_offset=65
+    kilos=True
+    wt_range=(105, 109, 1)
+    wt_color='#0f0'
+    wt_height=50
+    wt_offset=450
+    wt_target=101
+    x_axis_pos=50
+    x_axis_font=14
+    days = 28
+    y_axis_pos = 35
+    y_axis_font=16
 
-def about(request):
-    return render(request, "nx/about.html")
+    @property
+    def day_width(self):
+        return 1 + self.bp_width * 2 + self.bp_sep + self.bp_margins * 2
 
-def contact(request):
-    return render(request, "nx/contact.html")
+    @property
+    def width(self):
+        return self.day_width * (1 + self.days) + 1 + self.y_axis_pos + 1
 
-def admin(request):
-   return HttpResponseRedirect(reverse('nx-admin').replace('nx/admin', 'admin/nx'))
+    @property
+    def height(self):
+        def range(r, h, ofs):
+            return ofs + h * (r[1] - r[0] + 1)
+        return self.x_axis_pos + 1 + max(range(self.wt_range, self.wt_height, self.wt_offset),
+                                         range(self.bp_range, self.bp_height, self.bp_offset))
 
+
+def chart(request):
+    """Draw a chart ourselves via PNG image below."""
+    chart = ChartAttrs()
+    context = {
+        'width': chart.width,
+        'height': chart.height,
+    }
+    return render(request, 'nx/chart.html', context=context)
+
+def chart_png(request):
+    chart = ChartAttrs()
+    img = Image.new("RGB", (chart.width,chart.height), chart.bg)
+    draw = ImageDraw.Draw(img)
+    obs = models.Obs.objects.order_by('-date0')
+    start_day = obs[0].date0
+    end_day = start_day - datetime.timedelta(days=chart.days)
+    # X axis
+    font = ImageFont.truetype("Comic Sans MS.ttf", chart.x_axis_font)
+    day_x = {}
+    for d in range(1, 1 + chart.days):
+        day = end_day + datetime.timedelta(days=d)
+        x = d * chart.day_width + chart.y_axis_pos
+        day_x[day.strftime('%Y-%m-%d')] = x
+        draw.line([(x, chart.height - chart.margin), (x, chart.margin)], fill='#eee')
+        day_num = day.day
+        lbl = f"{day_num}"
+        draw.text((x - chart.day_width / 2, chart.height - chart.x_axis_pos + 2), lbl, fill='#000', anchor='ma', font=font)
+        if day_num == 1 or (d == 1 and day_num < 15):
+            draw.text((x - chart.day_width / 2, chart.height - chart.x_axis_pos + 2 + chart.x_axis_font * 1.2),
+                      day.strftime("%b"), fill='#000', anchor='la', font=font)
+        elif (day + datetime.timedelta(days=1)).day == 1 or (d == chart.days + 1 and day_num > 15):
+            draw.text((x - chart.day_width / 2, chart.height - chart.x_axis_pos + 2 + chart.x_axis_font * 1.2),
+                      day.strftime("%b"), fill='#000', anchor='ra', font=font)
+
+    draw.line([(chart.y_axis_pos, chart.height - chart.x_axis_pos),
+               (chart.width - chart.margin, chart.height - chart.x_axis_pos)], fill='#000')
+
+    # Y axis
+    def bp_y(bp):
+        return chart.height - chart.x_axis_pos - chart.bp_offset - (bp - chart.bp_range[0]) * chart.bp_height
+    def wt_y(wt):
+        return chart.height - chart.x_axis_pos - chart.wt_offset - (wt - chart.wt_range[0]) * chart.wt_height
+
+    for n in range(chart.bp_range[0], chart.bp_range[1] + 1, chart.bp_range[2]):
+        draw.text((chart.y_axis_pos - 2, bp_y(n)), str(n), font=font, fill='#000', anchor='rm')
+
+    for n in range(chart.wt_range[0], chart.wt_range[1] + 1, chart.wt_range[2]):
+        draw.text((chart.y_axis_pos - 2, wt_y(n)), str(n), font=font, fill='#080', anchor='rm')
+        draw.line([(chart.y_axis_pos, wt_y(n)), (chart.width - chart.margin, wt_y(n))], fill='#ddd')
+
+    draw.line([(chart.y_axis_pos, chart.height - chart.x_axis_pos),
+               (chart.y_axis_pos, chart.margin)], fill='#222')
+    draw.line([(chart.y_axis_pos, bp_y(80)), (chart.width - chart.margin, bp_y(80))], fill='#777')
+    draw.line([(chart.y_axis_pos, bp_y(120)), (chart.width - chart.margin, bp_y(120))], fill='#777')
+
+    weight_line = []
+    for ob in obs:
+        if ob.date0 <= end_day:
+            break
+        x = day_x[ob.date1] - chart.day_width / 2
+        if ob.am_higher and ob.am_lower:
+            draw.rectangle((x - chart.bp_sep / 2 - chart.bp_width, bp_y(ob.am_higher), x - chart.bp_sep / 2, bp_y(ob.am_lower)),
+                           outline='#eee', fill=chart.bp_am)
+        if ob.pm_higher and ob.pm_lower:
+            draw.rectangle((x + chart.bp_sep / 2, bp_y(ob.pm_higher), x + chart.bp_sep / 2 + chart.bp_width, bp_y(ob.pm_lower)),
+                           outline='#eee', fill=chart.bp_pm)
+        if ob.kilos or ob.pounds:
+            weight_line.append((x, wt_y(float(ob.kgs))))
+
+    draw.line(weight_line, fill=chart.wt_color, width=4)
+
+    draw.line([(chart.y_axis_pos, bp_y(100)),
+               (chart.width - chart.margin, bp_y(100))], fill='#333', width=2)
+
+    png_buffer = io.BytesIO()
+    img.save(png_buffer, "PNG")
+    png_buffer.seek(0)
+    response = FileResponse(png_buffer)
+    return response

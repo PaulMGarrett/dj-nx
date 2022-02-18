@@ -13,4 +13,6 @@ urlpatterns = [
     path("about/", views.about, name='about'),
     path("contact/", views.contact, name='contact'),
     path("admin/", views.admin, name='nx-admin'),
+    path('chart.png', views.chart_png, name='chart_png'),
+    path('chart.html', views.chart, name='chart'),
 ]
