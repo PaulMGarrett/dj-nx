@@ -1,5 +1,7 @@
 import datetime
 import io
+import math
+import traceback
 
 from django.core.paginator import Paginator
 from django.forms import formset_factory
@@ -202,7 +204,7 @@ class ObsChart():
     def __init__(self, slug, title, chart_type, data_labels, ob_reader,
                  stacked=False, colour=None,
                  xFontSize=14, yFontSize=20,
-                 lines=None):
+                 lines=None, days=60, smooth=0):
         """
         slug: alphanumeric chart id (goes into variable names)
         title: chart title text
@@ -212,6 +214,8 @@ class ObsChart():
         stacked: for bar graphs, draw one above the other (second colour white)
         colour: line or bar colour, or array of colours, or None for standard set
         lines: annotation details for extra lines to be drawn
+        days: how many (most recent) days to show
+        smooth: how many days for rolling average (0 for none)
         """
         self.slug = slug
         self.title = title
@@ -230,6 +234,8 @@ class ObsChart():
         self.xFontSize = xFontSize
         self.yFontSize = yFontSize
         self.ann_lines = lines
+        self.days = int(days)
+        self.smooth=smooth
 
     def get_annotations(self):
         ann_list = []
@@ -268,7 +274,7 @@ class ObsChart():
 """
 
     def chart_load(self):
-        return f"  loadChart(chart_{self.slug}, `/nx/chart-data/{self.slug}`);\n"
+        return f"  loadChart(chart_{self.slug}, `/nx/chart-data/{self.slug}?days={self.days}&smooth={self.smooth}`);\n"
 
     def json_response(self):
         dsets = []
@@ -317,37 +323,71 @@ class ObsChart():
 
 AllCharts = [
     ObsChart('lbs', "Weight (pounds)", 'line', ["Weight (lb)"],
-             lambda ob: [ob.lbs] if ob.lbs else None,
-             colour='#40ff40'),
+             lambda ob: [ob.lbs] if float(ob.lbs) else None,
+             colour='#40ff40', days=60),
     ObsChart('kgs', "Weight (kilos)", 'line', ["Weight (kg)"],
-             lambda ob: [ob.kgs] if ob.kgs else None,
-             colour='#008080'),
+             lambda ob: [ob.kgs] if float(ob.kgs) else None,
+             colour='#008080', days=60),
     ObsChart('bpam', "Blood Pressure (morning)", 'bar', ["Diastolic", "Systolic"],
-             lambda ob: [int(ob.am_lower), int(ob.am_higher) - int(ob.am_lower)] if ob.am_higher and ob.am_lower else None,
+             lambda ob: [int(ob.am_lower), int(ob.am_higher) - int(ob.am_lower)] if (
+                            ob.am_higher and ob.am_lower and
+                            int(ob.am_higher) and int(ob.am_lower) and
+                            int(ob.am_higher) > int(ob.am_lower)) else None,
              colour='#ff4040', stacked=True, lines=[100]),
     ObsChart('bppm', "Blood Pressure (afternoon)", 'bar', ["Diastolic", "Systolic"],
-             lambda ob: [int(ob.pm_lower), int(ob.pm_higher) - int(ob.pm_lower)] if ob.pm_higher and ob.pm_lower else None,
+             lambda ob: [int(ob.pm_lower), int(ob.pm_higher) - int(ob.pm_lower)] if (
+                            ob.pm_higher and ob.pm_lower and
+                            int(ob.pm_higher) and int(ob.pm_lower) and
+                            int(ob.pm_higher) > int(ob.pm_lower)) else None,
              colour='#4040ff', stacked=True, lines=[80, 100, 120]),
+    ObsChart('lbhist', "Weight (smooth)", 'line', ["Weight (lb)"],
+             lambda ob: [ob.lbs] if float(ob.lbs) else None,
+             colour='#40ff40', days=500, smooth=10),
 ]
 
-def chart_data(request, cname, days=60):
+def chart_data(request, cname):
     cobj = list([c for c in AllCharts if c.slug == cname])
     if len(cobj) == 1:
         cobj = cobj[0]
     else:
         return HttpResponseNotFound()
     
+    days = int(request.GET.get('days', 60))
+    smooth = int(request.GET.get('smooth', 10 if cname == 'lbhist' else 0))
+    print(f"days={days} smooth={smooth}")
+
     resp = cobj.json_response()
     # the response should contain all the options, title text etc. - just add data
     obs = models.Obs.objects.order_by('date0')
     if len(obs) > days:
         obs = obs[len(obs) - days:]
+    # prev_row = None
+    recent = []
     for ob in obs:
-        row = cobj.ob_reader(ob)
-        if row:
-            resp['data']['labels'].append(ob.date0.strftime('%b %d'))
-            for i, v in enumerate(row):
-                resp['data']['datasets'][i]['data'].append(v)
+        try:
+            row = cobj.ob_reader(ob)
+        except:
+            traceback.print_exc()
+            continue
+        if not row:
+            continue
+    
+        if smooth:
+            recent.append(row)
+            if len(recent) < smooth:
+                continue
+            while len(recent) > smooth: recent.pop(0)
+            for i in range(len(row)):
+                row[i] = sum([float(x[i]) for x in recent]) / len(recent)
+        for i, v in enumerate(row):
+            resp['data']['datasets'][i]['data'].append(v)
+        resp['data']['labels'].append(ob.date0.strftime('%b %d'))
+        #     prevRow = row
+        # elif prev_row:
+        #     resp['data']['labels'].append(ob.date0.strftime('%b %d'))
+        #     for i, v in enumerate(prev_row):
+        #         resp['data']['datasets'][i]['data'].append(v)
+
 
     return JsonResponse(resp)
 
@@ -396,7 +436,7 @@ class ChartAttrs():
                                          range(self.bp_range, self.bp_height, self.bp_offset))
 
 
-def chart(request):
+def combo_chart(request):
     """Draw a chart ourselves via PNG image below."""
     chart = ChartAttrs()
     context = {
@@ -405,7 +445,7 @@ def chart(request):
     }
     return render(request, 'nx/chart.html', context=context)
 
-def chart_png(request):
+def combo_chart_png(request):
     chart = ChartAttrs()
     img = Image.new("RGB", (chart.width,chart.height), chart.bg)
     draw = ImageDraw.Draw(img)

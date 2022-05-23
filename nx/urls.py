@@ -13,6 +13,6 @@ urlpatterns = [
     path("about/", views.about, name='about'),
     path("contact/", views.contact, name='contact'),
     path("admin/", views.admin, name='nx-admin'),
-    path('chart.png', views.chart_png, name='chart_png'),
-    path('chart.html', views.chart, name='chart'),
+    path('chart.png', views.combo_chart_png, name='combo_chart_png'),
+    path('chart.html', views.combo_chart, name='combo_chart'),
 ]

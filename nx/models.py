@@ -89,7 +89,7 @@ class Tablet(models.Model):
 
     @property
     def drug_details(self):
-        return f"{self.drug}({ug_to_string(self.tablet_micrograms)})"
+        return f"{self.drug} ({ug_to_string(self.tablet_micrograms)})"
 
     @property
     def tablet_info(self):
@@ -168,10 +168,11 @@ class Obs(models.Model):
     kilos = models.FloatField("kilos", default=0)
     am_higher = models.IntegerField("Morning systolic", blank=True, null=True)
     am_lower = models.IntegerField("Morning diastolic", blank=True, null=True)
-    # am_heart_rate = models.IntegerField("Morning bpm", null=True)
+    am_rate = models.IntegerField("Morning resting heart rate", blank=True, null=True)
     pm_higher = models.IntegerField("Afternoon systolic", blank=True, null=True)
     pm_lower = models.IntegerField("Afternoon diastolic", blank=True, null=True)
-    # pm_heart_rate = models.IntegerField("Afternoon bpm", null=True)
+    pm_rate = models.IntegerField("Afternoon resting heart rate", blank=True, null=True)
+    other_rate = models.IntegerField("Extra resting heart rate", blank=True, null=True)
 #    fatigue_score = models.IntegerField("Tiredness (out of 10)", validators=[out_of_ten], null=True)
     oedema = models.CharField("Oedema (swelling)", max_length=50, blank=True, null=True)
     dizzy_spells = models.IntegerField("Dizzy spells", default=0, null=True)
