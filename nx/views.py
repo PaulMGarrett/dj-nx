@@ -452,6 +452,20 @@ def combo_chart_png(request):
     obs = models.Obs.objects.order_by('-date0')
     start_day = obs[0].date0
     end_day = start_day - datetime.timedelta(days=chart.days)
+    min_wt = 200
+    max_wt = 0
+    for ob in obs:
+        if ob.date0 <= end_day:
+            break
+        if ob.kilos or ob.pounds:
+            if min_wt > float(ob.kgs):
+                min_wt = float(ob.kgs)
+            if max_wt < float(ob.kgs):
+                max_wt = float(ob.kgs)
+    min_wt = int(min_wt - 0.2)
+    max_wt = math.ceil(max_wt + 0.2)
+    step_wt = 1 if (max_wt - min_wt) < 8 else 2
+    chart.wt_range = (min_wt, max_wt, step_wt)
     # X axis
     font = ImageFont.truetype("Comic Sans MS.ttf", chart.x_axis_font)
     day_x = {}
