@@ -21,4 +21,4 @@ urlpatterns = [
     path('admin/', admin.site.urls, name='uber-admin')
 ]
 
-admin.site.site_url = 'nx/'
+admin.site.site_url = '/nx'
