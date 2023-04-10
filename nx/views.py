@@ -110,6 +110,27 @@ def day(request, yyyymmdd):
     return render(request, "nx/day.html", context=context)
 
 
+def meds(request):
+    """ List of current meds by slot, eventually re-ordering """
+
+    current = datetime.date.today()
+    med_schedule = None
+    note = None
+    for sched in models.Schedule.objects.order_by('-date0'):
+        med_schedule = sched
+        if sched.date0 <= current:
+            if sched.date0 == current:
+                note = sched.reason
+            break
+
+    context = {
+        'date1': current.strftime("%A %b %d %Y"),
+        'sched': med_schedule,
+        'sched_note': note,
+    }
+    return render(request, "nx/meds.html", context=context)
+
+
 def events(request):
     """ Just days with events noted - not paged yet """
     class TimePoint():

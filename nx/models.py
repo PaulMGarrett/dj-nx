@@ -115,10 +115,12 @@ class Schedule(models.Model):
                 if slot_name.startswith(s.code):
                     self.slot = s
             self.tablets = []
+            self.num_items = 0
 
         def add(self, tablet):
             self.tablets.append(tablet)
             self.tablets.sort(key=lambda t: (t.drug.name, t.tablet_micrograms, t.num_tablets))
+            self.num_items += tablet.num_tablets
 
     def doses_by_slot(self):
         slots = {}
