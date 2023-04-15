@@ -55,8 +55,10 @@ def out_of_ten(value):
     if value < 0 or value > 10:
         raise ValidationError("Must be between 0 and 10")
 
-def ug_to_string(micrograms):
+def ug_to_string(micrograms, second_micrograms=None):
     """Return human-friendly dosage as string."""
+    if second_micrograms:
+        return ug_to_string(micrograms) + '/' + ug_to_string(second_micrograms)
     if micrograms % 1000 == 0:
         milligrams = micrograms // 1000
         if milligrams % 1000 == 0:
@@ -86,10 +88,11 @@ class Tablet(models.Model):
     tablet_micrograms = models.IntegerField()
     num_tablets = models.FloatField(default=1.0)
     notes = models.CharField(max_length=150, blank=True)
+    second_micrograms = models.IntegerField(null=True)
 
     @property
     def drug_details(self):
-        return f"{self.drug} ({ug_to_string(self.tablet_micrograms)})"
+        return f"{self.drug} ({ug_to_string(self.tablet_micrograms, self.second_micrograms)})"
 
     @property
     def tablet_info(self):
