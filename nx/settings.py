@@ -29,7 +29,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY',
 # DEBUG = True
 DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 
-ALLOWED_HOSTS = ["mv15-pi7.local", '192.168.1.91', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ["mv15-pi3.local", 'mv15-pi3', '192.168.1.68', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -85,7 +85,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'nx',
         'USER': 'nxuser',
-        'PASSWORD': 'bful2408',
+        'PASSWORD': 'mb53CZ83',
         'HOST': 'localhost',
         'PORT': '',
     },
