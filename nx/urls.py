@@ -4,6 +4,7 @@ from nx import views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('day1/', views.day1, name='day1'),
     path('<int:yyyymmdd>/', views.day, name='day'),
     path('schedules/', views.schedules, name='schedules'),
     path('schedules/<int:yyyymmdd>/', views.schedule, name='schedule'),

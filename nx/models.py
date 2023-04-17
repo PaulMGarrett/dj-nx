@@ -30,9 +30,7 @@ class Slot():
         self.icon = icon
 
     def __str__(self):
-        h = int(self.alarm_hour)
-        m = int(60 * (self.alarm_hour - h))
-        return f"{self.code} ~ {h:02d}:{m:02d}"
+        return f"{self.code} ~ {self.time_str}"
 
     def text(self):
         return str(self)
@@ -41,14 +39,21 @@ class Slot():
         """ Return 2-element tuple of code and time string. """
         return (self.code, str(self))
 
+    @property
+    def time_str(self):
+        h = int(self.alarm_hour)
+        m = int(60 * (self.alarm_hour - h))
+        return f"{h:02d}:{m:02d}"
+
+
 # Hard-coded for now
 Slots = [
-    Slot('A1', 9, "#FFF0FF"),
-    Slot('A2', 12, "#F0FFFF"),
-    Slot('A3', 14, "#FFFFF0"),
-    Slot('B1', 16, "#FFF0F0"),
-    Slot('B2', 19, "#F0FFF0"),
-    Slot('B3', 21.5, "#F0F0FF"),
+    Slot('A1', 9, "#FFE0FF"),
+    Slot('A2', 12, "#E0FFFF"),
+    Slot('A3', 14, "#FFFFD0"),
+    Slot('B1', 16, "#FFE0E0"),
+    Slot('B2', 19, "#E0FFE0"),
+    Slot('B3', 21.5, "#E0E0FF"),
     ]
 
 def out_of_ten(value):
@@ -123,7 +128,8 @@ class Schedule(models.Model):
         def add(self, tablet):
             self.tablets.append(tablet)
             self.tablets.sort(key=lambda t: (t.drug.name, t.tablet_micrograms, t.num_tablets))
-            self.num_items += tablet.num_tablets
+            # count how many "things" are in the pot, so round half tablets up to 1
+            self.num_items += int(0.99 + tablet.num_tablets)
 
     def doses_by_slot(self):
         slots = {}

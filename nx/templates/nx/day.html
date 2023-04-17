@@ -17,37 +17,4 @@ Nx {{ date1 }}
     <input type="submit" value="Submit" class="btn-submit">
 </form>
 
-<h2> Medication List </h2>
-{% if sched_note %}
-    <p class="info">Just changed: {{ sched_note }}</p>
-{% endif %}
-
-{% if sched.dose_set.count %}
-<table class="meds-list">
-    <thead>
-    <tr>
-        <th>Slot</th>
-        <th>Tablets</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for sd in sched.doses_by_slot %}
-        <tr bgcolor="{{ sd.slot.colour }}">
-            <th>{{ sd.slot.text }}</th>
-            <td>
-                <ul>
-                {% for t in sd.tablets %}
-                    <li>{{ t.tablet_info }}</li>
-                {% endfor %}
-                </ul>
-            </td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>No doses scheduled for {{ date }}.</p>
-{% endif %}
-
-
 {% endblock %}

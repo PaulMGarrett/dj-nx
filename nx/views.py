@@ -33,8 +33,14 @@ class Link():
         return True
 
 
+def home(request):
+    return HttpResponseRedirect(reverse('meds'))
+
+
 def about(request):
-    return render(request, "nx/about.html")
+    info = [f"{k}: {v}" for k, v in request.headers.items()]
+    print(info)
+    return render(request, "nx/about.html", context={'info': info})
 
 
 def contact(request):
@@ -45,7 +51,7 @@ def admin(request):
    return HttpResponseRedirect(reverse('nx-admin').replace('nx/admin', 'admin/nx'))
 
 
-def home(request):
+def day1(request):
     try:
         latest = models.Obs.objects.order_by('-date0')[0]
         to_use = latest.date0
@@ -77,15 +83,6 @@ def day(request, yyyymmdd):
     ]
     # TODO today, first incomplete, etc.
 
-    med_schedule = None
-    note = None
-    for sched in models.Schedule.objects.order_by('-date0'):
-        med_schedule = sched
-        if sched.date0 <= current:
-            if sched.date0 == current:
-                note = sched.reason
-            break
-
     try:
         obs = models.Obs.objects.get(date0=current)
     except models.Obs.DoesNotExist:
@@ -103,8 +100,6 @@ def day(request, yyyymmdd):
     context = {
         'date1': current.strftime("%A %b %d %Y"),
         'navs': [lnk for lnk in links if lnk.isValid()],
-        'sched': med_schedule,
-        'sched_note': note,
         'new_obs_form': obs_form,
     }
     return render(request, "nx/day.html", context=context)

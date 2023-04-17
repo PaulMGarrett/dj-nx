@@ -1,10 +1,12 @@
 {% extends "nx/layout.html" %}
 {% block title %}
-Nx {{ date1 }}
+Nx Meds
 {% endblock %}
 {% block content %}
 
-<h2> Medication List {{ date1 }} </h2>
+<h2> Medication List </h2>
+<h4> {{ date1 }} </h4>
+
 {% if sched_note %}
     <p class="info">Just changed: {{ sched_note }}</p>
 {% endif %}
@@ -15,21 +17,17 @@ Nx {{ date1 }}
     <tr>
         <th>Slot</th>
         <th>Tablets</th>
-        <th>Total</th>
     </tr>
     </thead>
     <tbody>
     {% for sd in sched.doses_by_slot %}
         <tr bgcolor="{{ sd.slot.colour }}">
-            <th>{{ sd.slot.text }}</th>
-            <td>
-                <ul>
+        <th style="text-align:center">{{ sd.slot.time_str }}<br><br>(x{{ sd.num_items }})</th>
+            <td style="text-align:left">
                 {% for t in sd.tablets %}
-                    <li>{{ t.tablet_info }}</li>
+                    {{ t.tablet_info }}<br>
                 {% endfor %}
-                </ul>
             </td>
-	    <td align="center" valign="middle">{{ sd.num_items }}</td>
         </tr>
     {% endfor %}
     </tbody>
@@ -37,6 +35,5 @@ Nx {{ date1 }}
 {% else %}
 <p>No doses scheduled for {{ date }}.</p>
 {% endif %}
-
 
 {% endblock %}

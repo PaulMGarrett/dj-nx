@@ -4,4 +4,11 @@ About Us
 {% endblock %}
 {% block content %}
 <p>About page for Nx health tracker</p>
+{% if info %}
+    <ul>
+    {% for x in info %}
+    	<li> {{ x }} </li>
+    {% endfor %}
+    </ul>
+{% endif %}
 {% endblock %}
