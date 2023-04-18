@@ -48,7 +48,7 @@ class Slot():
 
 # Hard-coded for now
 Slots = [
-    Slot('A1', 9, "#FFE0FF"),
+    Slot('A1', 10, "#FFE0FF"),
     Slot('A2', 12, "#E0FFFF"),
     Slot('A3', 14, "#FFFFD0"),
     Slot('B1', 16, "#FFE0E0"),
