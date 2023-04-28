@@ -22,10 +22,17 @@ Nx Meds
     <tbody>
     {% for sd in sched.doses_by_slot %}
         <tr bgcolor="{{ sd.slot.colour }}">
-        <th style="text-align:center">{{ sd.slot.time_str }}<br><br>(x{{ sd.num_items }})</th>
+        <th style="text-align:center">
+		{{ sd.slot.time_str }}
+		<br>
+		<img href="/static/nx/{{ sd.slot.icon }}" alt="{{ sd.slot.name }}" width="64" height="64"/>
+		<br>
+		(x{{ sd.num_items }})</th>
             <td style="text-align:left">
                 {% for t in sd.tablets %}
-                    {{ t.tablet_info }}<br>
+                    {{ t.tablet_info }}
+                    {% if t.is_reused %} <b> + </b> {% endif %}
+                    <br>
                 {% endfor %}
             </td>
         </tr>

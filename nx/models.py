@@ -22,7 +22,7 @@ def fromDate(dt):
 
 
 class Slot():
-    def __init__(self, code, alarm, colour, name=None, icon=None):
+    def __init__(self, code, alarm, colour, name, icon):
         self.code = code
         self.alarm_hour = alarm
         self.colour = colour
@@ -48,12 +48,12 @@ class Slot():
 
 # Hard-coded for now
 Slots = [
-    Slot('A1', 10, "#FFE0FF"),
-    Slot('A2', 12, "#E0FFFF"),
-    Slot('A3', 14, "#FFFFD0"),
-    Slot('B1', 16, "#FFE0E0"),
-    Slot('B2', 19, "#E0FFE0"),
-    Slot('B3', 21.5, "#E0E0FF"),
+    Slot('A1', 10, "#FFE0FF", "Morning", 'Morning-pic.jpg'),
+    Slot('A2', 12, "#E0FFFF", None, None),
+    Slot('A3', 14, "#FFFFD0", "Midday", 'Midday-pic.jpg'),
+    Slot('B1', 16, "#FFE0E0", None, None),
+    Slot('B2', 19, "#E0FFE0", "Evening", 'Evening-pic.jpg'),
+    Slot('B3', 21.5, "#E0E0FF", "Bedtime", 'Bedtime-pic.jpg'),
     ]
 
 def out_of_ten(value):
@@ -117,6 +117,26 @@ class Schedule(models.Model):
     def __str__(self):
         return f"Schedule-from-{self.date0.isoformat()}"
 
+    class SlotTablet():
+        """ Wrapper class to let us override tablet_info """
+        def __init__(self, tablet):
+            self.real = tablet
+            self.num_repeats = 0
+
+        @property
+        def tablet_info(self):
+            return self.real.tablet_info
+
+        @property
+        def is_reused(self):
+            return self.num_repeats
+        
+        def later_tablet(self, later):
+            if (self.real.drug.name == later.real.drug.name and
+                    self.real.tablet_micrograms == later.real.tablet_micrograms):
+                # same box, so flag it
+                self.num_repeats += 1
+
     class SlotDoses():
         def __init__(self, slot_name):
             for s in Slots:
@@ -126,10 +146,18 @@ class Schedule(models.Model):
             self.num_items = 0
 
         def add(self, tablet):
-            self.tablets.append(tablet)
-            self.tablets.sort(key=lambda t: (t.drug.name, t.tablet_micrograms, t.num_tablets))
+            st = Schedule.SlotTablet(tablet)
+            for t in self.tablets:
+                t.later_tablet(st)
+            self.tablets.append(st)
+            self.tablets.sort(key=lambda t: (t.real.drug.name, t.real.tablet_micrograms, t.real.num_tablets))
             # count how many "things" are in the pot, so round half tablets up to 1
             self.num_items += int(0.99 + tablet.num_tablets)
+
+        def later(self, later_sd):
+            for t in self.tablets:
+                for lt in later_sd.tablets:
+                    t.later_tablet(lt)
 
     def doses_by_slot(self):
         slots = {}
@@ -137,7 +165,19 @@ class Schedule(models.Model):
             if not dose.slot:
                 continue
             slots.setdefault(dose.slot, Schedule.SlotDoses(dose.slot)).add(dose.tablet)
-        return sorted(slots.values(), key=lambda sd: sd.slot.code)
+        ret = sorted(slots.values(), key=lambda sd: sd.slot.code)
+        for i, sd in enumerate(ret):
+            for earlier_sd in ret[:i]:
+                earlier_sd.later(sd)
+        return ret
+
+    def doses_in_multiple_slots(self):
+        tcounts = {}
+        for dose in Dose.objects.filter(schedule=self):
+            if not dose.slot:
+                continue
+            tcounts[dose.tablet] = tcounts.get(dose.tablet, 0) + 1
+        return tcounts
 
     def edit_url(self):
         return reverse('schedule', args=[fromDate(self.date0)])
