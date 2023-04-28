@@ -18,6 +18,7 @@ from django.urls import include, path
 
 urlpatterns = [
     path('nx/', include("nx.urls")),
+    path('diet/', include("diet.urls")),
     path('admin/', admin.site.urls, name='uber-admin')
 ]
 
