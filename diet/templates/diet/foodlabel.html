@@ -1,0 +1,15 @@
+{% extends "diet/layout.html" %}
+{% block title %}
+    {{ food }}
+{% endblock %}
+{% block content %}
+<h2>Food label details</h2>
+
+    <table>
+        <tr><th>Name</th><td>{{ food.name }}</td></tr>
+        <tr><th>Created</th><td>{{ food.created }}</td></tr>
+        <tr><th>Calories</th><td>{{ food.calories }}</td></tr>
+        <tr><th>Carbs</th><td>{{ food.carbohydrates }}</td></tr>
+    </table>
+
+{% endblock %}
