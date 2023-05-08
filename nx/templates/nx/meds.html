@@ -27,10 +27,10 @@ Nx Meds
 		<br>
 		<img href="/static/nx/{{ sd.slot.icon }}" alt="{{ sd.slot.name }}" width="64" height="64"/>
 		<br>
-		(x{{ sd.num_items }})</th>
+		(x{{ sd.num_items_min_max }})</th>
             <td style="text-align:left">
                 {% for t in sd.tablets %}
-                    {{ t.tablet_info }}
+                    {{ t.tablet_info }} {{ t.week_pattern }}
                     {% if t.is_reused %} <b> + </b> {% endif %}
                     <br>
                 {% endfor %}

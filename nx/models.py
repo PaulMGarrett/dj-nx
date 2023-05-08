@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import datetime
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.db.models.fields import DateTimeField
 from django.db.models.fields.related import ForeignKey, ManyToManyField
@@ -92,6 +93,9 @@ class Tablet(models.Model):
     drug = models.ForeignKey(Drug, on_delete=models.PROTECT)
     tablet_micrograms = models.IntegerField()
     num_tablets = models.FloatField(default=1.0)
+    num_days = models.IntegerField("stagger doses over", default=1,
+                                   validators=[MinValueValidator(1),
+                                               MaxValueValidator(7)])
     notes = models.CharField(max_length=150, blank=True)
     second_micrograms = models.IntegerField(null=True)
 
@@ -103,10 +107,38 @@ class Tablet(models.Model):
     def tablet_info(self):
         return str(self)
 
+    def dose_on_day(self, day_num):
+        ''' Return the dose for given day '''
+        assert day_num > 0
+        if self.num_days > 1:
+            for scale in range(1,3):
+                if scale * self.num_tablets == int(scale * self.num_tablets):
+                    by_today = day_num * self.num_tablets * scale // self.num_days
+                    by_yesterday = (day_num - 1) * self.num_tablets * scale // self.num_days
+                    return (by_today - by_yesterday) / scale
+        return self.num_tablets / self.num_days
+
+    def dose_lo_hi(self):
+        doses = set()
+        for d in range(1, 8):
+            doses.add(self.dose_on_day(d))
+        if len(doses) == 1:
+            return list(doses) * 2
+        elif len(doses) == 2:
+            return sorted(list(doses))
+
+    @property
+    def tablet_doses(self):
+        lo_hi = self.dose_lo_hi()
+        if lo_hi[0] == lo_hi[1]:
+            return str(lo_hi[0])
+        else:
+            return '/'.join([str(x) for x in lo_hi])
+
     def __str__(self):
         x = self.drug_details
-        if self.num_tablets != 1:
-            x = x + f" x {self.num_tablets}"
+        if self.num_tablets != 1 or self.num_days != 1:
+            x = x + f" x {self.tablet_doses}"
         return x
     
 
@@ -114,14 +146,24 @@ class Schedule(models.Model):
     date0 = models.DateField("when this schedule came into force")
     reason = models.CharField("why it was changed", max_length=150)
 
+    day_names = "Mo Tu We Th Fr Sa Su".split()
+
     def __str__(self):
         return f"Schedule-from-{self.date0.isoformat()}"
 
     class SlotTablet():
         """ Wrapper class to let us override tablet_info """
-        def __init__(self, tablet):
+        def __init__(self, tablet, day_offset):
             self.real = tablet
             self.num_repeats = 0
+            self.week_pattern = ''
+            self.lo, self.hi = self.real.dose_lo_hi()
+            if self.lo != self.hi:
+                for i, d in enumerate(Schedule.day_names):
+                    dose = self.real.dose_on_day(day_offset + i)
+                    if dose == self.hi:
+                        self.week_pattern += d
+            self.num_items = [int(0.99 + self.lo), int(0.99 + self.hi)]
 
         @property
         def tablet_info(self):
@@ -138,46 +180,57 @@ class Schedule(models.Model):
                 self.num_repeats += 1
 
     class SlotDoses():
-        def __init__(self, slot_name):
+        def __init__(self, slot_name, day_offset):
             for s in Slots:
                 if slot_name.startswith(s.code):
                     self.slot = s
+            self.day_offset = day_offset
+            while self.day_offset <= 0:
+                self.day_offset += 7 * 6 * 5 * 4 * 3 * 2 * 1
             self.tablets = []
-            self.num_items = 0
+            self.num_items = [0, 0]
 
         def add(self, tablet):
-            st = Schedule.SlotTablet(tablet)
+            st = Schedule.SlotTablet(tablet, self.day_offset)
             for t in self.tablets:
                 t.later_tablet(st)
             self.tablets.append(st)
             self.tablets.sort(key=lambda t: (t.real.drug.name, t.real.tablet_micrograms, t.real.num_tablets))
             # count how many "things" are in the pot, so round half tablets up to 1
-            self.num_items += int(0.99 + tablet.num_tablets)
+            self.num_items[0] += st.num_items[0]
+            self.num_items[1] += st.num_items[1]
 
         def later(self, later_sd):
             for t in self.tablets:
                 for lt in later_sd.tablets:
                     t.later_tablet(lt)
 
+        @property
+        def num_items_min_max(self):
+            if self.num_items[0] == self.num_items[1]:
+                return str(self.num_items[0])
+            return '-'.join([str(self.num_items[0]), str(self.num_items[1])])
+
     def doses_by_slot(self):
+        self.day_offset = 1
         slots = {}
         for dose in Dose.objects.filter(schedule=self):
             if not dose.slot:
                 continue
-            slots.setdefault(dose.slot, Schedule.SlotDoses(dose.slot)).add(dose.tablet)
+            slots.setdefault(dose.slot, Schedule.SlotDoses(dose.slot, self.day_offset)).add(dose.tablet)
         ret = sorted(slots.values(), key=lambda sd: sd.slot.code)
         for i, sd in enumerate(ret):
             for earlier_sd in ret[:i]:
                 earlier_sd.later(sd)
         return ret
 
-    def doses_in_multiple_slots(self):
-        tcounts = {}
-        for dose in Dose.objects.filter(schedule=self):
-            if not dose.slot:
-                continue
-            tcounts[dose.tablet] = tcounts.get(dose.tablet, 0) + 1
-        return tcounts
+    # def doses_in_multiple_slots(self):
+    #     tcounts = {}
+    #     for dose in Dose.objects.filter(schedule=self):
+    #         if not dose.slot:
+    #             continue
+    #         tcounts[dose.tablet] = tcounts.get(dose.tablet, 0) + 1
+    #     return tcounts
 
     def edit_url(self):
         return reverse('schedule', args=[fromDate(self.date0)])
