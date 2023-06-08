@@ -5,7 +5,9 @@ Nx Meds
 {% block content %}
 
 <h2> Medication List </h2>
-<h4> {{ date1 }} </h4>
+{% for nav in navs %}
+    <a href="{{ nav.url }}" class="day-link"> {{ nav.text }} </a> &nbsp;
+{% endfor %}
 
 {% if sched_note %}
     <p class="info">Just changed: {{ sched_note }}</p>

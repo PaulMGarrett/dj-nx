@@ -16,14 +16,15 @@ from nx import forms, models
 
 
 class Link():
-    MAX_FUTURE_DAYS = 3
+    MAX_FUTURE_DAYS = 370
     earliest = datetime.date(year=2020, month=9, day=1)
-    def __init__(self, datetime, text):
+    def __init__(self, datetime, text, base):
         self.dt = datetime
         self.text = text
+        self.base = base
     
     def url(self):
-        return reverse('day', args=[self.dt.strftime("%Y%m%d")])
+        return reverse(self.base, args=[self.dt.strftime("%Y%m%d")])
 
     def isValid(self):
         if self.dt < Link.earliest:
@@ -34,7 +35,11 @@ class Link():
 
 
 def home(request):
-    return HttpResponseRedirect(reverse('meds'))
+    to_use = datetime.date.today()
+    while to_use.weekday() > 0:
+        to_use -= datetime.timedelta(days=1)
+    yyyymmdd = int(to_use.strftime("%Y%m%d"))
+    return HttpResponseRedirect(reverse('meds', args=[yyyymmdd]))
 
 
 def about(request):
@@ -74,12 +79,12 @@ def day(request, yyyymmdd):
         return HttpResponseNotFound(f"Not a valid YYYYMMDD: '{yyyymmdd}'")
 
     links = [
-        Link(current - datetime.timedelta(days=30), "Previous month"),
-        Link(current - datetime.timedelta(days=7), "Previous week"),
-        Link(current - datetime.timedelta(days=1), "Previous day"),
-        Link(current + datetime.timedelta(days=1), "Next day"),
-        Link(current + datetime.timedelta(days=7), "Next week"),
-        Link(current + datetime.timedelta(days=30), "Next month"),
+        Link(current - datetime.timedelta(days=30), "Previous month", 'day'),
+        Link(current - datetime.timedelta(days=7), "Previous week", 'day'),
+        Link(current - datetime.timedelta(days=1), "Previous day", 'day'),
+        Link(current + datetime.timedelta(days=1), "Next day", 'day'),
+        Link(current + datetime.timedelta(days=7), "Next week", 'day'),
+        Link(current + datetime.timedelta(days=30), "Next month", 'day'),
     ]
     # TODO today, first incomplete, etc.
 
@@ -105,10 +110,19 @@ def day(request, yyyymmdd):
     return render(request, "nx/day.html", context=context)
 
 
-def meds(request):
+def meds(request, yyyymmdd):
     """ List of current meds by slot, eventually re-ordering """
+    try:
+        current = models.toDate(yyyymmdd)
+    except:
+        return HttpResponseNotFound(f"Not a valid YYYYMMDD: '{yyyymmdd}'")
 
-    current = datetime.date.today()
+    links = [
+        Link(current - datetime.timedelta(days=7), "<<", 'meds'),
+        Link(current, current.strftime("%A %b %d %Y"), 'meds'),
+        Link(current + datetime.timedelta(days=7), ">>", 'meds'),
+    ]
+
     med_schedule = None
     note = None
     for sched in models.Schedule.objects.order_by('-date0'):
@@ -120,6 +134,7 @@ def meds(request):
 
     context = {
         'date1': current.strftime("%A %b %d %Y"),
+        'navs': [lnk for lnk in links if lnk.isValid()],
         'sched': med_schedule,
         'sched_note': note,
     }
