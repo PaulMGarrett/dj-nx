@@ -3,7 +3,7 @@ from django.urls import path
 from nx import views
 
 urlpatterns = [
-    path('', views.home, name='home'),
+    path('', views.home, name='nxhome'),
     path('day1/', views.day1, name='day1'),
     path('<int:yyyymmdd>/', views.day, name='day'),
     path('schedules/', views.schedules, name='schedules'),
