@@ -9,11 +9,12 @@ Nx Meds
     <a href="{{ nav.url }}" class="day-link"> {{ nav.text }} </a> &nbsp;
 {% endfor %}
 
-{% if sched_note %}
-    <p class="info">Just changed: {{ sched_note }}</p>
+{% for change in changes %}
+    <dt>{{ change[0] }}</dt>
+    <dd>{{ change[1] }}</dd>
 {% endif %}
 
-{% if sched.dose_set.count %}
+{% if slots.count %}
 <table class="meds-list">
     <thead>
     <tr>
@@ -22,27 +23,30 @@ Nx Meds
     </tr>
     </thead>
     <tbody>
-    {% for sd in sched.doses_by_slot %}
-        <tr bgcolor="{{ sd.slot.colour }}">
+    {% for s in slots %}
+        <tr bgcolor="{{ s.slot.colour }}">
         <th style="text-align:center">
-		{{ sd.slot.time_str }}
+		{{ s.slot.time_str }}
 		<br>
-		<img src="/static/nx/{{ sd.slot.icon }}" alt="{{ sd.slot.name }}" width="64" height="64"/>
+		<img src="/static/nx/{{ s.slot.icon }}" alt="{{ s.slot.name }}" width="64" height="64"/>
 		<br>
-		(x{{ sd.num_items_min_max }})</th>
+		(x{{ s.num_items_min_max }})</th>
             <td style="text-align:left">
-                {% for t in sd.tablets %}
-                    {{ t.tablet_info }} {{ t.week_pattern }}
-                    {% if t.is_reused %} <b> + </b> {% endif %}
-                    <br>
+                <ul>
+                {% for d in s.doses %}
+                    <li>
+                    {{ d.info }} {{ d.week_pattern }}
+                    {% if d.is_reused %} <b> + </b> {% endif %}
+                    </li>
                 {% endfor %}
+                </ul>
             </td>
         </tr>
     {% endfor %}
     </tbody>
 </table>
 {% else %}
-<p>No doses scheduled for {{ date }}.</p>
+<p>No doses scheduled for week beginning {{ date1 }}.</p>
 {% endif %}
 
 {% endblock %}
