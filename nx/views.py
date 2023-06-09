@@ -110,33 +110,121 @@ def day(request, yyyymmdd):
     return render(request, "nx/day.html", context=context)
 
 
+class SlotDose():
+    SEPARATOR = ':'
+    DAY_NAMES = "Mo Tu We Th Fr Sa Su".split()
+
+    def __init__(self, slot_drug):
+        self.slot_code, self.drug = slot_drug
+        self.days = [0] * 7
+        self.is_reused = False
+
+    def add_day(self, day, num_tablets):
+        assert(day < 7)
+        self.days[day] = num_tablets
+
+    @property
+    def info(self):
+        return self.drug
+    
+    def min_max_items(self):
+        actual_doses = sorted(self.days)
+        return int(0.99 + actual_doses[0]), int(0.99 + actual_doses[-1])
+
+    def week_pattern(self):
+        actual_doses = set(self.days)
+        if len(actual_doses) == 1:
+            return str(actual_doses[0])
+        multi = []
+        for ad in sorted(actual_doses):
+            if ad == 0:
+                continue
+            txt = f"{ad}{self.SEPARATOR}"
+            for i, day_name in self.DAY_NAMES:
+                if self.days[i] != ad:
+                    continue
+                if not txt.endswith(self.SEPARATOR):
+                    txt += '/'
+                txt += day_name
+            multi.append(txt)
+        return ';'.join(multi)
+
+
+class SlotList():
+    def __init__(self, code):
+        self.code = code
+        for s in models.Slots:
+            if code.startswith(self.code):
+                self.slot = s
+    
+    def add_dose(self, slot_dose):
+        self.doses.append(slot_dose)
+
+    @property
+    def num_items_min_max(self):
+        n_min = n_max = 0
+        for d in self.doses:
+            d_min, d_max = d.min_max_items()
+            n_min += d_min
+            n_max += d_max
+        return f"{n_min}..{n_max}"
+
+
 def meds(request, yyyymmdd):
     """ List of current meds by slot, eventually re-ordering """
     try:
-        current = models.toDate(yyyymmdd)
+        week_start = models.toDate(yyyymmdd)
     except:
         return HttpResponseNotFound(f"Not a valid YYYYMMDD: '{yyyymmdd}'")
 
     links = [
-        Link(current - datetime.timedelta(days=7), "<<", 'meds'),
-        Link(current, current.strftime("%A %b %d %Y"), 'meds'),
-        Link(current + datetime.timedelta(days=7), ">>", 'meds'),
+        Link(week_start - datetime.timedelta(days=7), "<<", 'meds'),
+        Link(week_start, week_start.strftime("%A %b %d %Y"), 'meds'),
+        Link(week_start + datetime.timedelta(days=7), ">>", 'meds'),
     ]
 
-    med_schedule = None
-    note = None
-    for sched in models.Schedule.objects.order_by('-date0'):
-        med_schedule = sched
-        if sched.date0 <= current:
-            if sched.date0 == current:
-                note = sched.reason
-            break
+    slot_doses = {}
+
+    schedule_changes = []
+    for day in range(7):
+        current = week_start + datetime.timedelta(days=day)
+        med_schedule = None
+        note = None
+        for sched in models.Schedule.objects.order_by('-date0'):
+            med_schedule = sched
+            if sched.date0 <= current:
+                if sched.date0 == current:
+                    schedule_changes.append((SlotDose.DAY_NAMES[day], sched.reason))
+                break
+        day_offset = 1 + (current - med_schedule.date0).days
+
+        for dose in models.Dose.objects.filter(schedule=med_schedule):
+            key = (dose.slot, dose.drug_details)
+            sd = slot_doses.setdefault(key, SlotDose(key))
+            sd.add_day(day, dose.tablet.dose_on_day(day_offset))
+
+        slots = []
+        drug_last_used = {}
+        for key in sorted(slot_doses.keys()):
+            code, drug = key
+            sd = slot_doses[key]
+
+            last_sd = drug_last_used.get(drug)
+            if last_sd:
+                last_sd.is_reused = True
+            drug_last_used[drug] = sd
+
+            if not slots or slots[-1].code != code:
+                slots.append(SlotList(code))
+            slots[-1].add_dose(sd)
+
 
     context = {
         'date1': current.strftime("%A %b %d %Y"),
         'navs': [lnk for lnk in links if lnk.isValid()],
         'sched': med_schedule,
-        'sched_note': note,
+        'changes': schedule_changes,
+        'slots': slots
     }
     return render(request, "nx/meds.html", context=context)
 
