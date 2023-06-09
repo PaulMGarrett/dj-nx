@@ -15,6 +15,13 @@ from PIL import Image, ImageDraw, ImageFont
 from nx import forms, models
 
 
+def short_form(tablets):
+    if tablets == int(tablets):
+        return str(int(tablets))
+    else:
+        return str(float(tablets))
+
+
 class Link():
     MAX_FUTURE_DAYS = 370
     earliest = datetime.date(year=2020, month=9, day=1)
@@ -110,6 +117,12 @@ def day(request, yyyymmdd):
     return render(request, "nx/day.html", context=context)
 
 
+class SchedChange():
+    def __init__(self, day, text):
+        self.day = day
+        self.reason = text
+
+
 class SlotDose():
     SEPARATOR = ':'
     DAY_NAMES = "Mo Tu We Th Fr Sa Su".split()
@@ -127,20 +140,22 @@ class SlotDose():
     def info(self):
         return self.drug
     
+    @property
     def min_max_items(self):
         actual_doses = sorted(self.days)
         return int(0.99 + actual_doses[0]), int(0.99 + actual_doses[-1])
 
+    @property
     def week_pattern(self):
         actual_doses = set(self.days)
         if len(actual_doses) == 1:
-            return str(actual_doses[0])
+            return short_form(next(iter(actual_doses)))
         multi = []
         for ad in sorted(actual_doses):
             if ad == 0:
                 continue
-            txt = f"{ad}{self.SEPARATOR}"
-            for i, day_name in self.DAY_NAMES:
+            txt = f"{short_form(ad)}{self.SEPARATOR}"
+            for i, day_name in enumerate(self.DAY_NAMES):
                 if self.days[i] != ad:
                     continue
                 if not txt.endswith(self.SEPARATOR):
@@ -156,7 +171,8 @@ class SlotList():
         for s in models.Slots:
             if code.startswith(self.code):
                 self.slot = s
-    
+        self.doses = []
+
     def add_dose(self, slot_dose):
         self.doses.append(slot_dose)
 
@@ -164,14 +180,17 @@ class SlotList():
     def num_items_min_max(self):
         n_min = n_max = 0
         for d in self.doses:
-            d_min, d_max = d.min_max_items()
+            d_min, d_max = d.min_max_items
             n_min += d_min
             n_max += d_max
+        if n_min == n_max:
+            return f"{n_min}"
         return f"{n_min}..{n_max}"
 
 
 def meds(request, yyyymmdd):
     """ List of current meds by slot, eventually re-ordering """
+    DAY_OFFSET = 7 * 6 * 5 * 4 * 3* 2   # all possible cycles come round in this many days
     try:
         week_start = models.toDate(yyyymmdd)
     except:
@@ -194,9 +213,9 @@ def meds(request, yyyymmdd):
             med_schedule = sched
             if sched.date0 <= current:
                 if sched.date0 == current:
-                    schedule_changes.append((SlotDose.DAY_NAMES[day], sched.reason))
+                    schedule_changes.append(SchedChange(SlotDose.DAY_NAMES[day], sched.reason))
                 break
-        day_offset = 1 + (current - med_schedule.date0).days
+        day_offset = DAY_OFFSET + (current - med_schedule.date0).days
 
         for dose in models.Dose.objects.filter(schedule=med_schedule):
             key = (dose.slot, dose.drug_details)

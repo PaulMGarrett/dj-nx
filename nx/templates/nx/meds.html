@@ -10,16 +10,16 @@ Nx Meds
 {% endfor %}
 
 {% for change in changes %}
-    <dt>{{ change[0] }}</dt>
-    <dd>{{ change[1] }}</dd>
-{% endif %}
+    <dt>{{ change.day }}</dt>
+    <dd>{{ change.reason }}</dd>
+{% endfor %}
 
-{% if slots.count %}
+{% if slots %}
 <table class="meds-list">
     <thead>
     <tr>
         <th>Slot</th>
-        <th>Tablets</th>
+        <th colspan=2>Tablets</th>
     </tr>
     </thead>
     <tbody>
@@ -32,14 +32,13 @@ Nx Meds
 		<br>
 		(x{{ s.num_items_min_max }})</th>
             <td style="text-align:left">
-                <ul>
-                {% for d in s.doses %}
-                    <li>
-                    {{ d.info }} {{ d.week_pattern }}
-                    {% if d.is_reused %} <b> + </b> {% endif %}
-                    </li>
-                {% endfor %}
-                </ul>
+		    <ul>
+		    {% for d in s.doses %}
+		    <li> {{ d.info }} {{ d.week_pattern }}
+			{% if d.is_reused %} <b> + </b> {% endif %}
+		    </li>
+		    {% endfor %}
+		    </ul>
             </td>
         </tr>
     {% endfor %}
