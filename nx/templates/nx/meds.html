@@ -34,7 +34,7 @@ Nx Meds
             <td style="text-align:left">
 		    <ul>
 		    {% for d in s.doses %}
-		    <li> {{ d.info }} {{ d.week_pattern }}
+		    <li> {{ d.info }} <b>x</b> {{ d.week_pattern }}
 			{% if d.is_reused %} <b> + </b> {% endif %}
 		    </li>
 		    {% endfor %}
