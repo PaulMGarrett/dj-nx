@@ -2,6 +2,11 @@
 {% block title %}
 Nx Meds
 {% endblock %}
+
+{% block scripting %}
+<!-- script src="/static/nx/wakelock.js"></script -->
+{% endblock scripting %}
+
 {% block content %}
 
 <h2> Medication List </h2>
@@ -47,5 +52,6 @@ Nx Meds
 {% else %}
 <p>No doses scheduled for week beginning {{ date1 }}.</p>
 {% endif %}
+<div id="wakeLockDiv">No wake lock</div>
 
 {% endblock %}
