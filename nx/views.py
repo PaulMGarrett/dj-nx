@@ -169,7 +169,7 @@ class SlotList():
     def __init__(self, code):
         self.code = code
         for s in models.Slots:
-            if code.startswith(self.code):
+            if s.code.startswith(self.code):
                 self.slot = s
         self.doses = []
 
