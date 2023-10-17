@@ -73,6 +73,8 @@ def ug_to_string(micrograms, second_micrograms=None):
         return f"{milligrams:d}mg"
     elif micrograms % 100 == 0 and micrograms < 100 * 1000:
         return f"{micrograms/1000:.1f}mg"
+    elif micrograms % 10 == 0 and micrograms < 10 * 1000:
+        return f"{micrograms/1000:.2f}mg"
     else:
         return f"{micrograms:d}ug"
 
