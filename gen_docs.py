@@ -12,12 +12,12 @@ CATEGORIES_FILE = Path("drug_categories.yaml")
 DOCS_DIR = Path("docs")
 
 SLOT_NAMES = {
-    "A1": "Morning",
-    "A2": "Late morning",
-    "A3": "Midday",
-    "B1": "Afternoon",
-    "B2": "Evening",
-    "B3": "Bedtime",
+    "A1": "AM",  # Morning
+    "A2": "Late AM",  # Late morning
+    "A3": "Noon",  # Midday
+    "B1": "PM",  # Afternoon
+    "B2": "Eve",  # Evening
+    "B3": "Bed"   # "Night",  # Bedtime
 }
 
 SLOT_ORDER = list(SLOT_NAMES.keys())
@@ -161,6 +161,19 @@ def generate(backup_path: Path, docs_dir: Path, num: int | None = None):
         lines.append("")
         filename.write_text("\n".join(lines))
         print(f"  wrote {filename}")
+
+    # Update 'Current meds' link in index.md to point to the most recent schedule
+    most_recent_date = sorted_schedules[0][1]["date0"]
+    index_path = docs_dir / "index.md"
+    if index_path.exists():
+        import re
+        updated = re.sub(
+            r'\[Current meds\]\([^)]*\)',
+            f'[Current meds]({most_recent_date}.md)',
+            index_path.read_text(),
+        )
+        index_path.write_text(updated)
+        print(f"  updated {index_path} -> {most_recent_date}.md")
 
     print(f"Done — {len(sorted_schedules)} files written to {docs_dir}/")
     if all_unknowns:
