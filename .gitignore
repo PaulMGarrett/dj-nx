@@ -6,6 +6,3 @@ env/
 **/__pycache__/
 data.json
 static/**
-
-# gen_docs creates docs/ files from backups/ file(s) (on gh-pages branch)
-docs/
