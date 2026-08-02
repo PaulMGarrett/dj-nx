@@ -120,10 +120,10 @@ def generate(backup_path: Path, docs_dir: Path, num: int | None = None):
 
         nav_parts = []
         if prev_date:
-            nav_parts.append(f"[Previous]({prev_date}.md)")
+            nav_parts.append(f'<a href="{prev_date}.md" class="btn">← Previous</a>')
         if next_date:
-            nav_parts.append(f"[Next]({next_date}.md)")
-        nav_line = " | ".join(nav_parts)
+            nav_parts.append(f'<a href="{next_date}.md" class="btn">Next →</a>')
+        nav_line = "\n".join(nav_parts)
 
         lines = [
             f"# Schedule from {date0}",
